@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 1, "column": 0}, "map": {"version":3,"sources":["turbopack:///[project]/Desktop/smartTour/smarttour-test/app/globals.css"],"sourcesContent":[":root {\n  --background: #ffffff;\n  --foreground: #171717;\n}\n\n@media (prefers-color-scheme: dark) {\n  :root {\n    --background: #0a0a0a;\n    --foreground: #ededed;\n  }\n}\n\n* {\n  margin: 0;\n  padding: 0;\n  box-sizing: border-box;\n}\n\nbody {\n  background: var(--background);\n  color: var(--foreground);\n  font-family: system-ui, -apple-system, sans-serif;\n}\n\nhtml, body, #root {\n  width: 100%;\n  height: 100%;\n}\n"],"names":[],"mappings":"AAAA;;;;;AAKA;EACE;;;;;;AAMF;;;;;;AAMA;;;;;;AAMA"}}]
+}
