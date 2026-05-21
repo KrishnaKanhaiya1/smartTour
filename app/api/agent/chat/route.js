@@ -1,6 +1,6 @@
 // app/api/agent/chat/route.js
 import { NextResponse } from 'next/server';
-import { OrchestratorAgent } from '@/lib/services/agents/orchestrator';
+import { ChatAgent } from '@/lib/services/agents/chatAgent';
 
 export async function POST(request) {
     try {
@@ -10,8 +10,8 @@ export async function POST(request) {
             return NextResponse.json({ success: false, error: 'Message is required' }, { status: 400 });
         }
 
-        const orchestrator = new OrchestratorAgent();
-        const result = await orchestrator.chat(message, history || []);
+        const agent = new ChatAgent();
+        const result = await agent.chat(message, history || []);
 
         return NextResponse.json({ success: true, data: result });
     } catch (error) {
