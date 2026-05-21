@@ -1,4 +1,4 @@
-import fetch from 'node-fetch';
+// Using native fetch
 
 const BASE_URL = 'http://localhost:3000/api';
 
@@ -40,7 +40,7 @@ async function runTests() {
     await testEndpoint('Food API', '/agent/food', 'POST', { destination: 'Rome', dietaryRestrictions: ['vegetarian'] });
 
     // 4. Test Translation
-    await testEndpoint('Translate API', '/agent/translate', 'POST', { text: 'Hello, how much is this?', targetLang: 'es' });
+    await testEndpoint('Translate API', '/agent/translate', 'POST', { text: 'Hello, how much is this?', targetLanguage: 'es' });
 
     // 5. Test Safety
     await testEndpoint('Safety API', '/agent/safety', 'POST', { destination: 'Rio de Janeiro' });
