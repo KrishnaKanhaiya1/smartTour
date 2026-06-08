@@ -1,4 +1,5 @@
 'use client';
+
 import { useState } from 'react';
 
 const LANGS = [
@@ -19,6 +20,7 @@ export default function TranslateTab() {
     const [loading, setLoading] = useState(false);
     const [phrases, setPhrases] = useState(null);
     const [phrasesLoading, setPhrasesLoading] = useState(false);
+    const [rotated, setRotated] = useState(false);
 
     const translate = async () => {
         if (!text.trim()) return;
@@ -54,96 +56,190 @@ export default function TranslateTab() {
             if (d.success) {
                 setPhrases(d.data);
             }
-        } catch (e) { console.error(e); }
+        } catch (e) { 
+            console.error(e); 
+        }
         setPhrasesLoading(false);
+    };
+
+    const handleSwap = () => {
+        setRotated(!rotated);
+        if (result && !result.error) {
+            setText(result.translatedText);
+            setResult(null);
+        }
     };
 
     const selectedLangLabel = LANGS.find(l => l.code === targetLang)?.label || targetLang;
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-            <div>
-                <h2 className="section-title">🌐 Translation Agent</h2>
-                <p className="section-subtitle">Real-time AI translation for any language pair</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }} className="page-enter-active">
+            {/* Header */}
+            <div className="page-header">
+                <div>
+                    <span className="label" style={{ color: 'var(--color-primary-light)' }}>REAL-TIME AI TRANSLATION</span>
+                    <h2 className="section-title">🌐 Translation Agent</h2>
+                    <p className="section-subtitle">Real-time AI translation for any language pair</p>
+                </div>
             </div>
 
-            {/* Translator Card */}
-            <div className="glass-card" style={{ padding: '28px' }}>
-                <div style={{ display: 'grid', gap: '16px' }}>
-                    <div>
-                        <label className="label">Text to Translate</label>
+            {/* Translator Grid Container */}
+            <div className="card" style={{ padding: '28px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px', alignItems: 'center' }} className="translator-grid">
+                    {/* LEFT PANEL */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <label className="label">Source Text (English)</label>
+                            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-faint)' }}>{text.length} chars</span>
+                        </div>
                         <textarea
                             className="input-field"
-                            rows={4}
+                            rows={5}
                             placeholder="Type anything — a phrase, a question, a sign you saw..."
                             value={text}
                             onChange={e => setText(e.target.value)}
-                            style={{ resize: 'vertical', fontFamily: 'inherit' }}
+                            style={{ resize: 'none', height: '135px' }}
                         />
+                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                            <button className="btn-ghost" onClick={() => setText('')} style={{ padding: '6px 12px', fontSize: 'var(--text-xs)' }}>
+                                Clear Text
+                            </button>
+                        </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                        <div style={{ flex: 1, minWidth: '180px' }}>
+
+                    {/* CENTER ACTION SWAP BUTTON */}
+                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                        <button
+                            onClick={handleSwap}
+                            style={{
+                                width: '44px',
+                                height: '44px',
+                                borderRadius: '50%',
+                                background: 'var(--color-primary-subtle)',
+                                border: '1px solid var(--color-primary)',
+                                color: 'var(--color-primary-light)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                fontSize: '1.2rem',
+                                transform: rotated ? 'rotate(180deg)' : 'rotate(0deg)',
+                                transition: 'transform 0.4s var(--ease-out-expo)',
+                                boxShadow: 'var(--shadow-glow)'
+                            }}
+                            title="Swap Translation"
+                        >
+                            ↔
+                        </button>
+                    </div>
+
+                    {/* RIGHT PANEL */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <div>
                             <label className="label">Target Language</label>
-                            <select className="input-field" value={targetLang} onChange={e => setTargetLang(e.target.value)}>
+                            <select className="input-field" value={targetLang} onChange={e => setTargetLang(e.target.value)} style={{ height: '46px' }}>
                                 {LANGS.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
                             </select>
                         </div>
-                        <button className="btn-primary" onClick={translate} disabled={loading || !text.trim()}
-                            style={{ padding: '12px 28px' }}>
-                            {loading ? <><span className="spinner" /> Translating...</> : '🔤 Translate Now'}
-                        </button>
+                        <div style={{
+                            background: 'var(--color-surface)',
+                            border: '1px solid var(--border-subtle)',
+                            borderRadius: 'var(--radius-md)',
+                            padding: '16px',
+                            minHeight: '135px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'space-between'
+                        }}>
+                            <div>
+                                {result && !result.error ? (
+                                    <div>
+                                        <p style={{ fontSize: 'var(--text-base)', color: 'var(--color-text)', fontWeight: 600 }}>
+                                            {result.translatedText}
+                                        </p>
+                                        {result.phonetic && (
+                                            <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: '8px', fontStyle: 'italic' }}>
+                                                📣 {result.phonetic}
+                                            </p>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <p style={{ color: 'var(--color-text-faint)', fontSize: 'var(--text-sm)' }}>
+                                        Translation will appear here...
+                                    </p>
+                                )}
+                            </div>
+                            {result && !result.error && (
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
+                                    <button
+                                        className="btn-ghost"
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(result.translatedText);
+                                            alert('Copied translation to clipboard!');
+                                        }}
+                                        style={{ padding: '4px 10px', fontSize: '11px' }}
+                                    >
+                                        Copy
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
-                {result && !result.error && (
-                    <div style={{ marginTop: '24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                        <div style={{ background: 'rgba(108,92,231,0.08)', border: '1px solid rgba(108,92,231,0.2)', borderRadius: '14px', padding: '20px' }}>
-                            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: 600 }}>ORIGINAL · {result.sourceLanguage?.toUpperCase()}</p>
-                            <p style={{ fontSize: '1.1rem', color: 'var(--text-primary)', lineHeight: 1.6 }}>"{result.originalText}"</p>
+                <button className="btn-primary" onClick={translate} disabled={loading || !text.trim()}
+                    style={{ width: '100%', justifyContent: 'center', height: '46px', marginTop: '20px' }}>
+                    {loading ? <><span className="spinner" /> Translating...</> : 'Translate Now'}
+                </button>
+
+                {result?.culturalNote && (
+                    <div className="card" style={{ background: 'rgba(253,203,110,0.03)', border: '1px solid rgba(253,203,110,0.1)', display: 'flex', gap: '12px', marginTop: '20px', padding: '16px' }}>
+                        <span style={{ fontSize: '1.2rem' }}>💡</span>
+                        <div>
+                            <p style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--color-warning)' }}>Cultural Note</p>
+                            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.82rem', marginTop: '2px', lineHeight: 1.5 }}>{result.culturalNote}</p>
                         </div>
-                        <div style={{ background: 'rgba(0,204,203,0.08)', border: '1px solid rgba(0,204,203,0.25)', borderRadius: '14px', padding: '20px' }}>
-                            <p style={{ fontSize: '0.8rem', color: 'var(--clr-secondary)', marginBottom: '8px', fontWeight: 600 }}>{selectedLangLabel.toUpperCase()}</p>
-                            <p style={{ fontSize: '1.2rem', color: 'var(--text-primary)', lineHeight: 1.6, fontWeight: 600 }}>"{result.translatedText}"</p>
-                            {result.phonetic && <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '8px', fontStyle: 'italic' }}>📣 {result.phonetic}</p>}
-                        </div>
-                        {result.culturalNote && (
-                            <div style={{ gridColumn: '1/-1', background: 'rgba(253,203,110,0.08)', border: '1px solid rgba(253,203,110,0.25)', borderRadius: '12px', padding: '14px 18px', display: 'flex', gap: '10px' }}>
-                                <span style={{ fontSize: '1.2rem' }}>💡</span>
-                                <p style={{ color: 'var(--clr-gold)', fontSize: '0.9rem' }}>{result.culturalNote}</p>
-                            </div>
-                        )}
                     </div>
                 )}
+
                 {result?.error && (
-                    <div className="glass-card" style={{ marginTop: '24px', padding: '16px', background: 'rgba(214,48,49,0.06)', border: '1px solid rgba(214,48,49,0.3)', borderRadius: '12px' }}>
-                        <p style={{ color: 'var(--clr-danger)', fontWeight: 600, textAlign: 'center' }}>⚠️ {result.error}</p>
+                    <div style={{ marginTop: '20px', padding: '16px', background: 'var(--color-error-subtle)', border: '1px solid var(--color-error)', borderRadius: 'var(--radius-md)' }}>
+                        <p style={{ color: 'var(--color-error)', fontWeight: 600, textAlign: 'center' }}>⚠️ {result.error}</p>
                     </div>
                 )}
+
+                <style jsx global>{`
+                    @media (min-width: 992px) {
+                        .translator-grid {
+                            grid-template-columns: 1fr 60px 1fr !important;
+                        }
+                    }
+                `}</style>
             </div>
 
             {/* Common Phrases */}
-            <div className="glass-card" style={{ padding: '28px' }}>
+            <div className="card" style={{ padding: '28px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)' }}>⚡ Essential Travel Phrases in {selectedLangLabel}</h3>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--color-text)', fontFamily: 'var(--font-display)' }}>⚡ Essential Travel Phrases in {selectedLangLabel}</h3>
                     <button className="btn-secondary" onClick={loadPhrases} disabled={phrasesLoading} style={{ padding: '9px 20px', fontSize: '0.85rem' }}>
-                        {phrasesLoading ? <><span className="spinner" style={{ width: '14px', height: '14px' }} /> Loading...</> : '🔄 Generate Phrases'}
+                        {phrasesLoading ? <><span className="spinner" style={{ width: '14px', height: '14px' }} /> Loading...</> : 'Generate Phrases'}
                     </button>
                 </div>
                 {phrases ? (
-                    <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
+                    <div className="card-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '14px' }}>
                         {phrases.phrases?.map((p, i) => (
-                            <div key={i} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '12px', padding: '14px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                            <div key={i} className="card" style={{ padding: '16px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                                     <span className="badge badge-primary" style={{ fontSize: '0.72rem' }}>{p.useCase}</span>
                                 </div>
-                                <p style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.9rem' }}>{p.english}</p>
-                                {p.translated && <p style={{ color: 'var(--clr-secondary)', marginTop: '4px', fontSize: '0.95rem' }}>{p.translated}</p>}
-                                {p.phonetic && <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginTop: '3px', fontStyle: 'italic' }}>📣 {p.phonetic}</p>}
+                                <p style={{ color: 'var(--color-text)', fontWeight: 600, fontSize: 'var(--text-sm)' }}>{p.english}</p>
+                                {p.translated && <p style={{ color: 'var(--color-primary-light)', marginTop: '4px', fontSize: '0.92rem', fontWeight: 600 }}>{p.translated}</p>}
+                                {p.phonetic && <p style={{ color: 'var(--color-text-faint)', fontSize: '0.78rem', marginTop: '3px', fontStyle: 'italic' }}>📣 {p.phonetic}</p>}
                             </div>
                         ))}
                     </div>
                 ) : (
-                    <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '24px' }}>Select a language and click Generate Phrases for AI-powered travel phrases</p>
+                    <p style={{ color: 'var(--color-text-muted)', textAlign: 'center', padding: '24px', fontSize: 'var(--text-sm)' }}>Select a language and click Generate Phrases for AI-powered travel phrases.</p>
                 )}
             </div>
         </div>

@@ -1,4 +1,5 @@
 'use client';
+
 import { useState, useRef, useEffect } from 'react';
 
 export default function ChatWidget() {
@@ -48,10 +49,11 @@ export default function ChatWidget() {
             <button onClick={() => setOpen(!open)} style={{
                 position: 'fixed', bottom: '28px', right: '28px', zIndex: 9000,
                 width: '60px', height: '60px', borderRadius: '50%', border: 'none', cursor: 'pointer',
-                background: 'linear-gradient(135deg, #6C5CE7, #00CCCB)',
-                boxShadow: '0 8px 30px rgba(108,92,231,0.5)',
+                background: 'linear-gradient(135deg, var(--color-primary), var(--color-primary-light))',
+                boxShadow: '0 8px 30px var(--color-primary-glow-strong)',
                 fontSize: '1.4rem', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'all 0.3s ease', transform: open ? 'rotate(45deg)' : 'rotate(0)'
+                transition: 'all 0.3s ease', transform: open ? 'rotate(45deg)' : 'rotate(0)',
+                color: '#0a0b0f'
             }}>
                 {open ? '✕' : '🤖'}
             </button>
@@ -61,19 +63,19 @@ export default function ChatWidget() {
                 <div style={{
                     position: 'fixed', bottom: '100px', right: '28px', zIndex: 8999,
                     width: '380px', maxWidth: 'calc(100vw - 40px)',
-                    background: 'var(--bg-surface)', border: '1px solid var(--border-medium)',
-                    borderRadius: '24px', boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+                    background: 'var(--color-surface)', border: '1px solid var(--border-medium)',
+                    borderRadius: '24px', boxShadow: 'var(--shadow-lg)',
                     display: 'flex', flexDirection: 'column', overflow: 'hidden',
-                    animation: 'fadeInUp 0.3s ease'
+                    animation: 'page-enter 0.3s ease'
                 }}>
                     {/* Header */}
-                    <div style={{ padding: '16px 20px', background: 'linear-gradient(135deg, #6C5CE7, #5a4bd1)', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ width: '40px', height: '40px', background: 'rgba(255,255,255,0.2)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>🤖</div>
+                    <div style={{ padding: '16px 20px', background: 'linear-gradient(135deg, var(--color-primary-dark), var(--color-primary))', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ width: '40px', height: '40px', background: 'rgba(255,255,255,0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', color: '#0a0b0f' }}>🤖</div>
                         <div>
-                            <p style={{ fontWeight: 700, color: 'white', fontSize: '0.95rem' }}>SmartTour AI</p>
+                            <p style={{ fontWeight: 700, color: 'white', fontSize: '0.95rem', fontFamily: 'var(--font-display)' }}>SmartTour AI</p>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 <div className="pulse-dot" style={{ width: '6px', height: '6px' }} />
-                                <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.78rem' }}>Online — Ask anything</span>
+                                <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.78rem' }}>Online — Ask anything</span>
                             </div>
                         </div>
                     </div>
@@ -104,11 +106,12 @@ export default function ChatWidget() {
                         <div style={{ padding: '0 12px 8px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                             {QUICK.map((q, i) => (
                                 <button key={i} onClick={() => { setInput(q); }} style={{
-                                    background: 'var(--bg-card)', border: '1px solid var(--border-medium)', borderRadius: '100px',
-                                    padding: '5px 10px', fontSize: '0.75rem', color: 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.2s'
+                                    background: 'var(--color-surface-card)', border: '1px solid var(--border-subtle)', borderRadius: '100px',
+                                    padding: '5px 10px', fontSize: '0.75rem', color: 'var(--color-text-muted)', cursor: 'pointer', transition: 'all 0.2s',
+                                    fontFamily: 'var(--font-body)'
                                 }}
-                                    onMouseEnter={e => { e.target.style.borderColor = 'var(--clr-primary)'; e.target.style.color = 'var(--text-primary)'; }}
-                                    onMouseLeave={e => { e.target.style.borderColor = 'var(--border-medium)'; e.target.style.color = 'var(--text-secondary)'; }}>
+                                    onMouseEnter={e => { e.target.style.borderColor = 'var(--color-primary)'; e.target.style.color = 'var(--color-text)'; }}
+                                    onMouseLeave={e => { e.target.style.borderColor = 'var(--border-subtle)'; e.target.style.color = 'var(--color-text-muted)'; }}>
                                     {q}
                                 </button>
                             ))}
@@ -118,15 +121,15 @@ export default function ChatWidget() {
                     {/* Input */}
                     <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: '8px' }}>
                         <input
-                            style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-medium)', borderRadius: '12px', padding: '10px 14px', color: 'var(--text-primary)', fontSize: '0.88rem', outline: 'none', fontFamily: 'inherit' }}
+                            style={{ flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-medium)', borderRadius: '12px', padding: '10px 14px', color: 'var(--color-text)', fontSize: '0.88rem', outline: 'none', fontFamily: 'inherit' }}
                             placeholder="Ask about travel..."
                             value={input} onChange={e => setInput(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && sendMessage()} />
                         <button onClick={sendMessage} disabled={loading || !input.trim()} style={{
                             width: '40px', height: '40px', borderRadius: '12px', border: 'none', cursor: 'pointer',
-                            background: input.trim() ? 'linear-gradient(135deg, #6C5CE7, #a29bfe)' : 'var(--bg-card)',
-                            color: 'white', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            transition: 'all 0.2s', flexShrink: 0
+                            background: input.trim() ? 'var(--color-primary)' : 'var(--color-surface-card)',
+                            color: input.trim() ? '#0a0b0f' : 'var(--color-text-faint)', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            transition: 'all 0.2s', flexShrink: 0, fontWeight: 'bold'
                         }}>➤</button>
                     </div>
                 </div>

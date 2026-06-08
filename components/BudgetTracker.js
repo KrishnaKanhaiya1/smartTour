@@ -1,13 +1,14 @@
 'use client';
+
 import { useState, useEffect } from 'react';
 
 const CATEGORIES = [
-  { name: 'Accommodation', icon: '🏨', color: '#a29bfe' },
+  { name: 'Accommodation', icon: '🏨', color: 'var(--color-primary-light)' },
   { name: 'Transport', icon: '🚇', color: '#74b9ff' },
   { name: 'Food', icon: '🍔', color: '#fdcb6e' },
-  { name: 'Attractions', icon: '🎟️', color: '#00b894' },
+  { name: 'Attractions', icon: '🎟️', color: 'var(--color-success)' },
   { name: 'Shopping', icon: '🛍️', color: '#fd79a8' },
-  { name: 'Others', icon: '🏷️', color: '#9ca3b4' }
+  { name: 'Others', icon: '🏷️', color: 'var(--color-text-muted)' }
 ];
 
 export default function BudgetTracker() {
@@ -95,7 +96,7 @@ export default function BudgetTracker() {
     if (spentPercentage >= 95) {
       setAiTip("🚨 CRITICAL WARNING: You have almost fully exhausted your travel budget! Focus strictly on free attractions and consider cutting down on optional shopping.");
     } else if (spentPercentage >= 75) {
-      setAiTip(`⚠️ BUDGET ALERT: You've spent ${spentPercentage.toFixed(0)}% of your budget. Your highest expense category is ${highCategory} ($${highVal}). Try switching to walking, public transit, or local street markets.`);
+      setAiTip(`⚠️ BUDGET ALERT: You've spent ${spentPercentage.toFixed(0)}% of your budget. Your highest expense category is ${highCategory} (₹${highVal.toLocaleString('en-IN')}). Try switching to walking, public transit, or local street markets.`);
     } else if (highCategory === 'Food' && (highVal / totalSpent) > 0.4) {
       setAiTip("🍔 Tip: Food is your primary expense. Seek out highly-rated street food stalls or local lunch homes instead of premium diners to save up to 50%!");
     } else if (highCategory === 'Shopping') {
@@ -108,19 +109,23 @@ export default function BudgetTracker() {
   }, [expenses, totalBudget, totalSpent, spentPercentage]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-      <div>
-        <h2 className="section-title">💰 Smart Budget & Expenses</h2>
-        <p className="section-subtitle">Keep your travel spending in check and get AI financial advice</p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }} className="page-enter-active">
+      {/* Header */}
+      <div className="page-header">
+        <div>
+          <span className="label" style={{ color: 'var(--color-primary-light)' }}>FINANCIAL CO-PILOT</span>
+          <h2 className="section-title">💰 Smart Budget & Expenses</h2>
+          <p className="section-subtitle">Keep your travel spending in check and get AI financial advice</p>
+        </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px', alignActions: 'start', gridAutoFlow: 'row', contentVisibility: 'auto' }} className="grid-responsive-layout">
-        {/* Row 1: KPI Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
-          <div className="glass-card" style={{ padding: '20px' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>TOTAL BUDGET</span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        {/* KPI Stats Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
+          <div className="card" style={{ padding: '20px' }}>
+            <span className="label">Total Budget</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
-              <span style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-primary)' }}>₹</span>
+              <span style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--color-text)' }}>₹</span>
               <input 
                 type="number"
                 value={totalBudget}
@@ -130,44 +135,44 @@ export default function BudgetTracker() {
                   border: 'none',
                   fontSize: '1.6rem',
                   fontWeight: 800,
-                  color: 'var(--text-primary)',
+                  color: 'var(--color-text)',
                   width: '100%',
                   outline: 'none'
                 }}
               />
             </div>
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>Click to edit budget</p>
+            <p style={{ fontSize: '0.7rem', color: 'var(--color-text-faint)', marginTop: '4px' }}>Click to edit budget</p>
           </div>
 
-          <div className="glass-card" style={{ padding: '20px' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>TOTAL SPENT</span>
-            <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#ff7675', marginTop: '8px' }}>
+          <div className="card" style={{ padding: '20px' }}>
+            <span className="label">Total Spent</span>
+            <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--color-error)', marginTop: '8px' }}>
               ₹{totalSpent.toLocaleString('en-IN')}
             </div>
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>Across {expenses.length} records</p>
+            <p style={{ fontSize: '0.7rem', color: 'var(--color-text-faint)', marginTop: '4px' }}>Across {expenses.length} records</p>
           </div>
 
-          <div className="glass-card" style={{ padding: '20px' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>REMAINING</span>
+          <div className="card" style={{ padding: '20px' }}>
+            <span className="label">Remaining</span>
             <div style={{ 
               fontSize: '1.6rem', 
               fontWeight: 800, 
-              color: remaining < 0 ? 'var(--clr-danger)' : 'var(--clr-success)', 
+              color: remaining < 0 ? 'var(--color-error)' : 'var(--color-success)', 
               marginTop: '8px' 
             }}>
               ₹{remaining.toLocaleString('en-IN')}
             </div>
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+            <p style={{ fontSize: '0.7rem', color: 'var(--color-text-faint)', marginTop: '4px' }}>
               {remaining < 0 ? 'Over budget!' : 'Within limit'}
             </p>
           </div>
         </div>
 
-        {/* Progress Bar */}
-        <div className="glass-card" style={{ padding: '20px' }}>
+        {/* Progress Bar Card */}
+        <div className="card" style={{ padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.82rem', fontWeight: 600 }}>
-            <span style={{ color: 'var(--text-secondary)' }}>Budget Usage</span>
-            <span style={{ color: spentPercentage > 90 ? 'var(--clr-danger)' : spentPercentage > 70 ? 'var(--clr-warning)' : 'var(--clr-success)' }}>
+            <span style={{ color: 'var(--color-text-muted)' }}>Budget Usage</span>
+            <span style={{ color: spentPercentage > 90 ? 'var(--color-error)' : spentPercentage > 70 ? 'var(--color-warning)' : 'var(--color-success)' }}>
               {spentPercentage.toFixed(1)}% Spent
             </span>
           </div>
@@ -175,32 +180,33 @@ export default function BudgetTracker() {
             <div style={{ 
               height: '100%', 
               width: `${Math.min(100, spentPercentage)}%`, 
-              background: spentPercentage > 90 ? 'var(--clr-danger)' : spentPercentage > 70 ? 'var(--clr-warning)' : 'var(--clr-success)',
+              background: spentPercentage > 90 ? 'var(--color-error)' : spentPercentage > 70 ? 'var(--color-warning)' : 'var(--color-success)',
               borderRadius: '9999px',
               transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
             }} />
           </div>
         </div>
 
-        {/* AI financial tip */}
-        <div className="glass-card" style={{ 
+        {/* AI Financial Tip Banner */}
+        <div className="card" style={{ 
           padding: '20px', 
-          background: spentPercentage > 90 ? 'rgba(214,48,49,0.08)' : spentPercentage > 70 ? 'rgba(225,112,85,0.08)' : 'rgba(0,184,148,0.06)', 
-          borderLeft: `4px solid ${spentPercentage > 90 ? 'var(--clr-danger)' : spentPercentage > 70 ? 'var(--clr-warning)' : 'var(--clr-success)'}` 
+          background: spentPercentage > 90 ? 'var(--color-error-subtle)' : spentPercentage > 70 ? 'rgba(253,203,110,0.04)' : 'rgba(0,184,148,0.04)', 
+          borderLeft: `4px solid ${spentPercentage > 90 ? 'var(--color-error)' : spentPercentage > 70 ? 'var(--color-warning)' : 'var(--color-success)'}`,
+          borderColor: spentPercentage > 90 ? 'var(--color-error)' : spentPercentage > 70 ? 'var(--color-warning)' : 'var(--color-success)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
             <span style={{ fontSize: '1.2rem' }}>💡</span>
-            <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>AI Travel Budget Co-Pilot</span>
+            <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-text)' }}>AI Travel Budget Co-Pilot</span>
           </div>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.5 }}>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', lineHeight: 1.5 }}>
             {aiTip}
           </p>
         </div>
 
         {/* Main Budget Tracker Split Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }} className="grid-responsive-layout">
           {/* Add Expense Form */}
-          <div className="glass-card" style={{ padding: '24px' }}>
+          <div className="card" style={{ padding: '24px' }}>
             <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.1rem', marginBottom: '18px' }}>
               ➕ Record Travel Expense
             </h3>
@@ -223,6 +229,7 @@ export default function BudgetTracker() {
                   className="input-field" 
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
+                  style={{ height: '46px' }}
                 >
                   {CATEGORIES.map(cat => (
                     <option key={cat.name} value={cat.name}>
@@ -243,20 +250,20 @@ export default function BudgetTracker() {
                 />
               </div>
 
-              <button type="submit" className="btn-primary" style={{ justifyContent: 'center', marginTop: '8px' }}>
+              <button type="submit" className="btn-primary" style={{ justifyContent: 'center', marginTop: '8px', height: '46px' }}>
                 Save Expense
               </button>
             </form>
           </div>
 
-          {/* Expenses List */}
-          <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Expenses Log */}
+          <div className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.1rem' }}>
                 📋 Expense Log ({expenses.length})
               </h3>
               {expenses.length > 0 && (
-                <button onClick={clearAll} className="btn-secondary" style={{ padding: '4px 10px', fontSize: '0.72rem', border: '1px solid rgba(214,48,49,0.3)', color: '#ff7675' }}>
+                <button onClick={clearAll} className="btn-ghost" style={{ padding: '4px 10px', fontSize: '0.72rem', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--color-error)' }}>
                   Reset All
                 </button>
               )}
@@ -264,7 +271,7 @@ export default function BudgetTracker() {
 
             <div style={{ flex: 1, maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', scrollbarWidth: 'thin' }}>
               {expenses.length === 0 ? (
-                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--color-text-faint)', fontSize: '0.85rem' }}>
                   <p style={{ fontSize: '2.5rem', marginBottom: '8px' }}>🧾</p>
                   <p>No expenses recorded yet</p>
                 </div>
@@ -289,7 +296,7 @@ export default function BudgetTracker() {
                           width: '32px', 
                           height: '32px', 
                           borderRadius: '8px', 
-                          background: `${catData.color}15`, 
+                          background: 'rgba(255,255,255,0.04)', 
                           color: catData.color, 
                           display: 'flex', 
                           alignItems: 'center', 
@@ -300,17 +307,17 @@ export default function BudgetTracker() {
                           {catData.icon}
                         </div>
                         <div style={{ minWidth: 0 }}>
-                          <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                          <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
                             {exp.description}
                           </h4>
-                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
                             {exp.date} · {exp.category}
                           </span>
                         </div>
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-                        <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#ff7675' }}>
+                        <span style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--color-error)' }}>
                           ₹{exp.amount}
                         </span>
                         <button 
@@ -318,13 +325,13 @@ export default function BudgetTracker() {
                           style={{
                             background: 'transparent',
                             border: 'none',
-                            color: 'var(--text-muted)',
+                            color: 'var(--color-text-faint)',
                             cursor: 'pointer',
                             fontSize: '0.9rem',
                             padding: '4px'
                           }}
-                          onMouseEnter={(e) => e.target.style.color = '#ff7675'}
-                          onMouseLeave={(e) => e.target.style.color = 'var(--text-muted)'}
+                          onMouseEnter={(e) => e.target.style.color = 'var(--color-error)'}
+                          onMouseLeave={(e) => e.target.style.color = 'var(--color-text-faint)'}
                         >
                           ✕
                         </button>
@@ -339,13 +346,14 @@ export default function BudgetTracker() {
       </div>
       
       {/* CSS details */}
-      <style dangerouslySetInnerHTML={{__html: `
+      <style jsx global>{`
         @media (max-width: 768px) {
           .grid-responsive-layout {
             grid-template-columns: 1fr !important;
           }
         }
-      `}} />
+      `}
+      </style>
     </div>
   );
 }

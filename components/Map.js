@@ -1,17 +1,101 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export default function Map() {
   const [location, setLocation] = useState(null);
   const [places, setPlaces] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedType, setSelectedType] = useState(null);
+  const [selectedType, setSelectedType] = useState('places');
   const [error, setError] = useState('');
 
+  // Leaflet references
+  const mapRef = useRef(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const [leafletInstance, setLeafletInstance] = useState(null);
+  const [markerGroup, setMarkerGroup] = useState(null);
+
+  // Load Leaflet dynamically on mount
+  useEffect(() => {
+    if (!document.getElementById('leaflet-css')) {
+      const link = document.createElement('link');
+      link.id = 'leaflet-css';
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+    }
+
+    if (!window.L) {
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.onload = () => {
+        setMapLoaded(true);
+      };
+      document.head.appendChild(script);
+    } else {
+      setMapLoaded(true);
+    }
+  }, []);
+
+  // Initialize Map
+  useEffect(() => {
+    if (mapLoaded && mapRef.current && !leafletInstance && window.L) {
+      const L = window.L;
+      const initialLat = location?.lat || 20.5937; // Default India center
+      const initialLng = location?.lng || 78.9629;
+      
+      const map = L.map(mapRef.current, { zoomControl: false }).setView([initialLat, initialLng], 13);
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+      // CartoDB Dark Tiles
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+        subdomains: 'abcd',
+        maxZoom: 20
+      }).addTo(map);
+
+      const markers = L.layerGroup().addTo(map);
+
+      setLeafletInstance(map);
+      setMarkerGroup(markers);
+    }
+  }, [mapLoaded, location, leafletInstance]);
+
+  // Update map center if geolocation changes
+  useEffect(() => {
+    if (leafletInstance && location && window.L) {
+      leafletInstance.setView([location.lat, location.lng], 14);
+    }
+  }, [location, leafletInstance]);
+
+  // Update markers when places array changes
+  useEffect(() => {
+    if (leafletInstance && markerGroup && window.L) {
+      const L = window.L;
+      markerGroup.clearLayers();
+
+      if (places.length > 0) {
+        const bounds = [];
+        places.forEach(place => {
+          const lat = place.latitude || place.lat;
+          const lng = place.longitude || place.lng;
+          if (lat && lng) {
+            bounds.push([lat, lng]);
+            const marker = L.marker([lat, lng]).addTo(markerGroup);
+            marker.bindPopup(`<b>${place.name}</b><br/>${place.address || place.type || ''}`);
+          }
+        });
+
+        if (bounds.length > 0) {
+          leafletInstance.fitBounds(bounds, { padding: [40, 40] });
+        }
+      }
+    }
+  }, [places, leafletInstance, markerGroup]);
+
   const searchPlaces = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     if (!searchQuery.trim()) return;
     setLoading(true);
     setError('');
@@ -39,12 +123,12 @@ export default function Map() {
     setLoading(true);
     setError('');
     setPlaces([]);
+    setSelectedType(type);
 
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
         setLocation({ lat: latitude, lng: longitude });
-        setSelectedType(type);
 
         try {
           const endpointMap = {
@@ -81,163 +165,136 @@ export default function Map() {
     );
   };
 
-  const typeIcons = { hotels: '🏨', restaurants: '🍽️', places: '📍' };
-  const typeColors = {
-    hotels: 'rgba(16,185,129,0.15)',
-    restaurants: 'rgba(245,158,11,0.15)',
-    places: 'rgba(139,92,246,0.15)',
-  };
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '600px', background: 'var(--bg-card)', color: 'var(--text-primary)' }}>
-      {/* Controls */}
-      <div style={{ padding: '20px', borderBottom: '1px solid var(--border)', backgroundColor: 'var(--bg-card-2)' }}>
-        <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {/* Header */}
+      <div className="page-header" style={{ marginBottom: 0 }}>
+        <div>
+          <span className="label" style={{ color: 'var(--color-primary-light)' }}>POWERED BY OPENSTREETMAP</span>
+          <h2 className="section-title">🗺️ Explore Places</h2>
+          <p className="section-subtitle">Find nearby hotels, restaurants, and attractions using OpenStreetMap</p>
+        </div>
+      </div>
+
+      {/* Controls Container */}
+      <div className="card" style={{ padding: '24px' }}>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
           {[
             { type: 'hotels', label: '🏨 Nearby Hotels' },
             { type: 'restaurants', label: '🍽️ Restaurants' },
-            { type: 'places', label: '📍 Attractions' },
-          ].map(({ type, label }) => (
-            <button
-              key={type}
-              onClick={() => getNearbyPlaces(type)}
-              disabled={loading}
-              style={{
-                padding: '9px 18px',
-                borderRadius: 10,
-                fontWeight: 600,
-                fontSize: '0.85rem',
-                border: selectedType === type ? '1px solid var(--accent)' : '1px solid var(--border)',
-                background: selectedType === type ? 'var(--gradient-accent)' : 'var(--bg-card)',
-                color: 'var(--text-primary)',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.6 : 1,
-                transition: 'all 0.2s',
-              }}
-            >
-              {label}
-            </button>
-          ))}
+            { type: 'places', label: '🏛️ Attractions' },
+          ].map(({ type, label }) => {
+            const active = selectedType === type;
+            return (
+              <button
+                key={type}
+                onClick={() => getNearbyPlaces(type)}
+                disabled={loading}
+                className={`pill-toggle ${active ? 'active' : ''}`}
+                style={{ padding: '8px 16px', fontSize: 'var(--text-xs)' }}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
 
-        <form onSubmit={searchPlaces} style={{ display: 'flex', gap: 10 }}>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search for any place..."
-            className="input-field"
-            style={{ flex: 1 }}
-          />
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn-primary"
-            style={{ flexShrink: 0 }}
-          >
-            {loading ? '...' : '🔍 Search'}
+        <form onSubmit={searchPlaces} style={{ display: 'flex', gap: '10px' }}>
+          <div style={{ position: 'relative', flex: 1 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2.5" style={{ position: 'absolute', left: '14px', top: '14px' }}>
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search for any place..."
+              className="input-field"
+              style={{ paddingLeft: '42px', height: '46px' }}
+            />
+          </div>
+          <button type="submit" disabled={loading || !searchQuery.trim()} className="btn-primary" style={{ height: '46px', whiteSpace: 'nowrap' }}>
+            Search Map
           </button>
         </form>
 
         {error && (
           <div style={{
-            marginTop: 10,
+            marginTop: 12,
             padding: '10px 14px',
-            borderRadius: 8,
-            background: 'rgba(239,68,68,0.1)',
-            border: '1px solid rgba(239,68,68,0.3)',
-            color: '#f87171',
-            fontSize: '0.85rem',
+            borderRadius: 'var(--radius-md)',
+            background: 'var(--color-error-subtle)',
+            border: '1px solid var(--color-error)',
+            color: 'var(--color-error)',
+            fontSize: 'var(--text-xs)',
           }}>
             ⚠️ {error}
           </div>
         )}
       </div>
 
-      {/* Map placeholder + results */}
-      <div style={{ flex: 1, overflow: 'auto' }}>
-        {/* Location info bar */}
-        {location && (
-          <div style={{
-            padding: '10px 20px',
-            borderBottom: '1px solid var(--border)',
-            background: 'rgba(99,102,241,0.08)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            fontSize: '0.8rem',
-            color: 'var(--text-secondary)',
-          }}>
-            <span>📍</span>
-            <span>Your location: {location.lat.toFixed(4)}, {location.lng.toFixed(4)}</span>
-            {selectedType && (
-              <span className="pill pill-blue" style={{ marginLeft: 'auto' }}>
-                {typeIcons[selectedType]} Showing {selectedType}
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Results grid / empty state */}
-        {loading ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 14, padding: 40 }}>
-            <div className="animate-spin" style={{ width: 36, height: 36, border: '3px solid var(--border)', borderTopColor: 'var(--accent)', borderRadius: '50%' }} />
-            <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Searching nearby places...</div>
-          </div>
-        ) : places.length > 0 ? (
-          <div style={{ padding: '16px 20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
-            {places.map((place, i) => (
-              <div
-                key={place.id || i}
-                style={{
-                  background: 'var(--bg-card-2)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 12,
-                  padding: 14,
-                  transition: 'all 0.2s',
-                  cursor: 'pointer',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(99,102,241,0.5)';
-                  e.currentTarget.style.background = 'rgba(99,102,241,0.06)';
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--border)';
-                  e.currentTarget.style.background = 'var(--bg-card-2)';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                }}
-              >
-                <div style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-primary)', marginBottom: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {place.name}
-                </div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                  {place.address || place.fullAddress || place.cuisine || place.type || 'No description'}
-                </div>
-                {place.phone && place.phone !== 'N/A' && (
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>📞 {place.phone}</div>
-                )}
-                {place.rating && (
-                  <div style={{ fontSize: '0.78rem', color: '#fbbf24', marginTop: 4 }}>★ {place.rating}</div>
-                )}
-                {place.type && (
-                  <div style={{ marginTop: 8 }}>
-                    <span className="pill pill-blue" style={{ fontSize: '0.7rem' }}>{place.type}</span>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12, padding: 40, textAlign: 'center' }}>
-            <div style={{ fontSize: '2.5rem', opacity: 0.4 }}>🗺️</div>
-            <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.95rem' }}>Explore Places Around You</div>
-            <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', maxWidth: 300 }}>
-              Click a category button above to find nearby hotels, restaurants and attractions, or search for a specific location.
-            </div>
-          </div>
+      {/* Map Display Card */}
+      <div style={{ 
+        height: '400px', 
+        borderRadius: 'var(--radius-xl)', 
+        border: '1px solid var(--border-subtle)', 
+        overflow: 'hidden', 
+        position: 'relative', 
+        background: 'var(--color-surface)' 
+      }}>
+        <div ref={mapRef} style={{ width: '100%', height: '100%', zIndex: 1 }} />
+        {loading && (
+          <div className="skeleton" style={{ position: 'absolute', inset: 0, zIndex: 1000 }} />
         )}
       </div>
+
+      {/* Results Title */}
+      {places.length > 0 && (
+        <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '1.2rem', color: 'var(--color-text)', marginTop: '8px' }}>
+          Explore Results
+        </h3>
+      )}
+
+      {/* Results Grid */}
+      {places.length > 0 && (
+        <div className="card-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+          {places.map((place, i) => (
+            <div key={place.id || i} className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                    <span style={{ fontSize: '1.2rem', flexShrink: 0 }}>
+                      {selectedType === 'hotels' ? '🏨' : selectedType === 'restaurants' ? '🍽️' : '🏛️'}
+                    </span>
+                    <h4 style={{ fontWeight: 700, color: 'var(--color-text)', fontSize: 'var(--text-sm)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {place.name}
+                    </h4>
+                  </div>
+                  <span className="badge badge-cyan" style={{ fontSize: '0.65rem', flexShrink: 0 }}>
+                    {place.distance ? `${(place.distance / 1000).toFixed(1)} km` : 'Nearby'}
+                  </span>
+                </div>
+                <p style={{ color: 'var(--color-text-muted)', fontSize: '0.82rem', lineHeight: 1.4, marginBottom: '10px' }}>
+                  {place.address || place.fullAddress || place.cuisine || place.type || 'No description available'}
+                </p>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', borderTop: '1px solid var(--border-subtle)', paddingTop: '10px' }}>
+                {place.rating ? (
+                  <span style={{ color: 'var(--color-warning)', fontSize: '0.78rem', fontWeight: 600 }}>★ {place.rating}</span>
+                ) : (
+                  <span style={{ color: 'var(--color-text-faint)', fontSize: '0.75rem' }}>No ratings</span>
+                )}
+                {place.phone && place.phone !== 'N/A' ? (
+                  <span style={{ color: 'var(--color-text-faint)', fontSize: '0.75rem' }}>📞 {place.phone}</span>
+                ) : (
+                  <span style={{ color: 'var(--color-text-faint)', fontSize: '0.75rem' }}>No phone info</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
