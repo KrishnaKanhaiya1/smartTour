@@ -2,10 +2,7 @@
 import { NextResponse } from 'next/server';
 import { askGeminiJSON } from '@/lib/gemini';
 
-const SYSTEM_PROMPT = `You are the Hotel Recommendation Agent for SmartTour.
-You recommend real, specific hotels and accommodations for any destination.
-Include a mix of budget, mid-range, and luxury options.
-Always return valid JSON with accurate, helpful information.`;
+const SYSTEM_PROMPT = `Hotel expert. Recommend real, specific hotels with mix of budget, mid-range, and luxury options.`;
 
 export async function POST(request) {
   try {
@@ -16,14 +13,8 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: 'Destination is required' }, { status: 400 });
     }
 
-    const prompt = `Recommend 5 real hotels in ${destination} for a ${nights || 3}-night stay, ${budget || 'moderate'} budget.
-
-Return JSON:
-{
-  "destination": "${destination}",
-  "hotels": [{ "name": string, "neighborhood": string, "stars": number (1-5), "pricePerNight": number (USD), "totalPrice": number, "description": string (1-2 sentences), "amenities": string[] (3 items), "bookingTip": string, "type": string (Budget/Boutique/Mid-Range/Luxury/Resort/Hostel), "recommended": boolean }],
-  "bookingAdvice": string
-}`;
+    const prompt = `Recommend 5 hotels in ${destination} for ${nights || 3} nights, budget:${budget || 'moderate'}.
+JSON: {"destination":"${destination}","hotels":[{"name":str,"neighborhood":str,"stars":1-5,"pricePerNight":num,"totalPrice":num,"description":str(1-2 sentences),"amenities":str[](3),"bookingTip":str,"type":str(Budget/Boutique/Mid-Range/Luxury/Resort/Hostel),"recommended":bool}](5),"bookingAdvice":str}`;
 
     try {
       const result = await askGeminiJSON(SYSTEM_PROMPT, prompt);

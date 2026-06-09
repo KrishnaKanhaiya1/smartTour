@@ -1,12 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
-export default function SafetyTab() {
-    const [destination, setDestination] = useState('');
+export default function SafetyTab({ initialData, defaultDestination }) {
+    const [destination, setDestination] = useState(defaultDestination || '');
     const [safetyData, setSafetyData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+
+    useEffect(() => {
+        if (defaultDestination) {
+            setDestination(defaultDestination);
+        }
+        if (initialData && initialData.destination?.toLowerCase() === (defaultDestination || '').toLowerCase()) {
+            setSafetyData(initialData);
+        } else {
+            setSafetyData(null);
+        }
+    }, [initialData, defaultDestination]);
 
     const getSafety = async () => {
         if (!destination.trim()) return;

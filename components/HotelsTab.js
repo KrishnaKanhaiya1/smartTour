@@ -1,14 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
-export default function HotelsTab() {
-    const [destination, setDestination] = useState('');
+export default function HotelsTab({ defaultDestination }) {
+    const [destination, setDestination] = useState(defaultDestination || '');
     const [budget, setBudget] = useState('moderate');
     const [nights, setNights] = useState(3);
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+
+    useEffect(() => {
+        if (defaultDestination) {
+            setDestination(defaultDestination);
+        }
+    }, [defaultDestination]);
 
     const getHotels = async () => {
         if (!destination.trim()) return;

@@ -1,14 +1,25 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
-export default function FoodTab() {
-    const [destination, setDestination] = useState('');
+export default function FoodTab({ initialData, defaultDestination }) {
+    const [destination, setDestination] = useState(defaultDestination || '');
     const [dietary, setDietary] = useState([]);
     const [budget, setBudget] = useState('moderate');
     const [foodData, setFoodData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+
+    useEffect(() => {
+        if (defaultDestination) {
+            setDestination(defaultDestination);
+        }
+        if (initialData && initialData.destination?.toLowerCase() === (defaultDestination || '').toLowerCase()) {
+            setFoodData(initialData);
+        } else {
+            setFoodData(null);
+        }
+    }, [initialData, defaultDestination]);
 
     const DIETARY_OPTIONS = ['vegetarian', 'vegan', 'halal', 'kosher', 'gluten-free', 'no nuts'];
 

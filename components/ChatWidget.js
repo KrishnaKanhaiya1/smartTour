@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+
+const CHAT_COOLDOWN_MS = 8000; // 8-second cooldown between messages to conserve API quota
 
 export default function ChatWidget() {
     const [open, setOpen] = useState(false);
@@ -9,21 +11,43 @@ export default function ChatWidget() {
     ]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
+    const [cooldown, setCooldown] = useState(0); // seconds remaining
     const bottomRef = useRef(null);
+    const cooldownRef = useRef(null);
 
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, open]);
 
+    // Cooldown timer
+    const startCooldown = useCallback(() => {
+        setCooldown(Math.ceil(CHAT_COOLDOWN_MS / 1000));
+        if (cooldownRef.current) clearInterval(cooldownRef.current);
+        cooldownRef.current = setInterval(() => {
+            setCooldown(prev => {
+                if (prev <= 1) {
+                    clearInterval(cooldownRef.current);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+    }, []);
+
+    useEffect(() => {
+        return () => { if (cooldownRef.current) clearInterval(cooldownRef.current); };
+    }, []);
+
     const sendMessage = async () => {
-        if (!input.trim() || loading) return;
+        if (!input.trim() || loading || cooldown > 0) return;
         const userMsg = { role: 'user', content: input };
         setMessages(prev => [...prev, userMsg]);
         setInput('');
         setLoading(true);
 
         try {
-            const history = messages.slice(1).map(m => ({ role: m.role === 'model' ? 'model' : 'user', content: m.content }));
+            // Only send last 5 messages for context (reduced from 10 to save tokens)
+            const history = messages.slice(-5).map(m => ({ role: m.role === 'model' ? 'model' : 'user', content: m.content }));
             const r = await fetch('/api/agent/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -33,12 +57,13 @@ export default function ChatWidget() {
             if (d.success) {
                 setMessages(prev => [...prev, { role: 'model', content: d.data.response }]);
             } else {
-                setMessages(prev => [...prev, { role: 'model', content: '⚠️ Sorry, I had trouble processing that. Please try again.' }]);
+                setMessages(prev => [...prev, { role: 'model', content: '⚠️ Sorry, I had trouble processing that. Please try again in a moment.' }]);
             }
         } catch {
             setMessages(prev => [...prev, { role: 'model', content: '⚠️ Connection issue. Please try again.' }]);
         }
         setLoading(false);
+        startCooldown(); // Start cooldown after each message
     };
 
     const QUICK = ['🗺️ Best time to visit Bali?', '🍜 What to eat in Tokyo?', '💼 Packing tips for cold weather', '🛡️ Is Cairo safe?'];
@@ -125,12 +150,12 @@ export default function ChatWidget() {
                             placeholder="Ask about travel..."
                             value={input} onChange={e => setInput(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && sendMessage()} />
-                        <button onClick={sendMessage} disabled={loading || !input.trim()} style={{
+                        <button onClick={sendMessage} disabled={loading || !input.trim() || cooldown > 0} style={{
                             width: '40px', height: '40px', borderRadius: '12px', border: 'none', cursor: 'pointer',
-                            background: input.trim() ? 'var(--color-primary)' : 'var(--color-surface-card)',
-                            color: input.trim() ? '#0a0b0f' : 'var(--color-text-faint)', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            background: (input.trim() && cooldown === 0) ? 'var(--color-primary)' : 'var(--color-surface-card)',
+                            color: (input.trim() && cooldown === 0) ? '#0a0b0f' : 'var(--color-text-faint)', fontSize: cooldown > 0 ? '0.7rem' : '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center',
                             transition: 'all 0.2s', flexShrink: 0, fontWeight: 'bold'
-                        }}>➤</button>
+                        }}>{cooldown > 0 ? `${cooldown}s` : '➤'}</button>
                     </div>
                 </div>
             )}

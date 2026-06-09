@@ -1071,19 +1071,19 @@ export default function Home() {
         )}
 
         {/* ATTRACTIONS */}
-        {activeTab === 'attractions' && <AttractionsTab key={`tab-content-${activeTab}`} />}
+        {activeTab === 'attractions' && <AttractionsTab key={`tab-content-${activeTab}`} defaultDestination={destination} />}
 
         {/* FOOD */}
-        {activeTab === 'food' && <FoodTab key={`tab-content-${activeTab}`} />}
+        {activeTab === 'food' && <FoodTab key={`tab-content-${activeTab}`} defaultDestination={destination} initialData={journeyResult?.foodRecommendations} />}
 
         {/* HOTELS */}
-        {activeTab === 'hotels' && <HotelsTab key={`tab-content-${activeTab}`} />}
+        {activeTab === 'hotels' && <HotelsTab key={`tab-content-${activeTab}`} defaultDestination={destination} />}
 
         {/* GUIDES */}
-        {activeTab === 'guides' && <GuidesTab key={`tab-content-${activeTab}`} />}
+        {activeTab === 'guides' && <GuidesTab key={`tab-content-${activeTab}`} destination={destination} userProfile={journeyResult?.userProfile} />}
 
         {/* SAFETY */}
-        {activeTab === 'safety' && <SafetyTab key={`tab-content-${activeTab}`} />}
+        {activeTab === 'safety' && <SafetyTab key={`tab-content-${activeTab}`} defaultDestination={destination} initialData={journeyResult?.safetyInformation} />}
 
         {/* TRANSLATE */}
         {activeTab === 'translate' && <TranslateTab key={`tab-content-${activeTab}`} />}

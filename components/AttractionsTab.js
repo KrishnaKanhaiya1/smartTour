@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const CATEGORY_ICONS = {
     museum: '🏛️', temple: '🛕', nature: '🌿', viewpoint: '🌅', market: '🛍️',
@@ -14,8 +14,8 @@ const CATEGORY_COLORS = {
     historical: '#6c5ce7', entertainment: '#fab1a0', art: '#fd79a8', adventure: '#d63031',
 };
 
-export default function AttractionsTab() {
-    const [destination, setDestination] = useState('');
+export default function AttractionsTab({ defaultDestination }) {
+    const [destination, setDestination] = useState(defaultDestination || '');
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -23,6 +23,12 @@ export default function AttractionsTab() {
     const [selectedAttr, setSelectedAttr] = useState(null);
     const [savedAttrs, setSavedAttrs] = useState({});
     const [resultsSubTab, setResultsSubTab] = useState('must-see');
+
+    useEffect(() => {
+        if (defaultDestination) {
+            setDestination(defaultDestination);
+        }
+    }, [defaultDestination]);
 
     const search = async (targetDest) => {
         const query = targetDest || destination;

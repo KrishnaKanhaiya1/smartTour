@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function GuidesTab({ guidesData, userProfile, destination }) {
     const [bookingId, setBookingId] = useState(null);
@@ -10,6 +10,15 @@ export default function GuidesTab({ guidesData, userProfile, destination }) {
     const [error, setError] = useState(null);
     const [selectedInterests, setSelectedInterests] = useState([]);
     const [selectedLangs, setSelectedLangs] = useState([]);
+
+    useEffect(() => {
+        if (destination) {
+            setDest(destination);
+        }
+        if (guidesData) {
+            setGuides(guidesData);
+        }
+    }, [destination, guidesData]);
 
     const fetchGuides = async () => {
         if (!dest.trim()) return;
