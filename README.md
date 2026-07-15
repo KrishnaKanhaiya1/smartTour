@@ -1,36 +1,63 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# smartTour – AI-Powered Multi-Agent Travel Planner
 
-## Getting Started
+An intelligent, location-aware travel concierge built with **Next.js** and orchestrated via **Google Gemini API**. It coordinates multiple specialized AI sub-agents to build, manage, and verify customized travel itineraries in real-time.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## 🎯 Key Features
+
+* **AI Agent Orchestration**: Uses a dedicated `orchestrator.js` that splits user requests and delegates sub-tasks to distinct agent files (e.g., itinerary planning, translations, safety, and dining recommendation agents).
+* **Interactive Dynamic Itineraries**: Adapts itineraries dynamically on user feedback or environmental signals.
+* **Geospatial & Safety Integration**: Integrates OpenStreetMap and weather APIs, pairing recommendations with localized safety warnings (via a dedicated `safetyAgent.js`).
+* **Food & Lodging Matching**: Scrapes and analyzes restaurant data to offer contextual dining maps.
+* **On-the-fly Translation**: Translation agent that enables communication support.
+
+---
+
+## 🏗️ Architecture
+
+```
+├── app/
+│   ├── api/
+│   │   ├── agent/                 # Agent endpoints (chat, safety, hotels, journey)
+│   │   └── places, weather, ...   # External integration APIs
+│   └── page.js                    # Main view
+├── components/                    # Tabbed panels (Map, Budget, Translate, SOS)
+└── lib/
+    ├── gemini.js                  # Model config
+    └── services/
+        └── agents/                # Agent source logic (itinerary, safety, translation, orchestrator)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+## ⚙️ How to Setup
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. **Clone the Repo**
+   ```bash
+   git clone https://github.com/KrishnaKanhaiya1/smartTour.git
+   cd smartTour
+   ```
 
-## Learn More
+2. **Install Dependencies**
+   ```bash
+   npm install
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+3. **Configure Environment Variables**
+   Create a `.env.local` file:
+   ```env
+   NEXT_PUBLIC_GEMINI_API_KEY=your_gemini_api_key
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+4. **Start Dev Server**
+   ```bash
+   npm run dev
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## 💡 Engineering Takeaways
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+* **Decoupled Architecture**: Dividing task handling into specialized sub-agents instead of a single prompt monolithic model drastically improved latency and response accuracy.
+* **State Syncing**: Synchronized leaf state components (maps, itinerary cards) smoothly using modular Next.js route handlers.
