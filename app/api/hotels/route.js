@@ -16,7 +16,29 @@ export async function GET(request) {
       );
     }
 
-    const hotels = await OpenStreetMapService.getNearbyHotels(lat, lng, radius);
+    let hotels = await OpenStreetMapService.getNearbyHotels(lat, lng, radius);
+    if (hotels.length === 0) {
+      try {
+        const fallbackPlaces = await OpenStreetMapService.searchPlaces(`hotel near ${lat},${lng}`);
+        if (fallbackPlaces && fallbackPlaces.length > 0) {
+          hotels = fallbackPlaces.map((p, idx) => ({
+            id: p.id || `hotel-fb-${idx}`,
+            osmType: 'node',
+            osmId: `node/${p.id || idx}`,
+            name: p.name,
+            location: p.location,
+            address: p.fullAddress || 'Address not available',
+            phone: 'N/A',
+            website: null,
+            stars: 'N/A',
+            verified: true,
+            mapUrl: OpenStreetMapService.buildGoogleMapsLink(p.location.lat, p.location.lng, p.name)
+          }));
+        }
+      } catch (fbErr) {
+        console.warn('[Hotels API] Fallback search failed:', fbErr.message);
+      }
+    }
 
     return NextResponse.json({
       success: true,

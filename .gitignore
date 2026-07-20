@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local key testing scripts
+test_*.mjs
+debug.log
+lint-output.txt
+test-results/

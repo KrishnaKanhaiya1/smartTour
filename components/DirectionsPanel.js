@@ -2,6 +2,14 @@
 
 import { useState, useEffect, useRef } from 'react';
 
+async function geocode(query) {
+  const response = await fetch(`/api/places?q=${encodeURIComponent(query)}`);
+  const data = await response.json();
+  const place = data?.success && Array.isArray(data.data) ? data.data[0] : null;
+  if (!place?.location) throw new Error(`No location found for "${query}".`);
+  return place;
+}
+
 export default function DirectionsPanel() {
   const [startLocation, setStartLocation] = useState('');
   const [endLocation, setEndLocation] = useState('');
@@ -40,10 +48,10 @@ export default function DirectionsPanel() {
   useEffect(() => {
     if (mapLoaded && directionsMapRef.current && !leafletInstance && window.L && directions) {
       const L = window.L;
-      const startLat = 8.5241;
-      const startLng = 76.9366;
-      const endLat = 12.9716;
-      const endLng = 77.5946;
+      const startLat = directions.start.location.lat;
+      const startLng = directions.start.location.lng;
+      const endLat = directions.end.location.lat;
+      const endLng = directions.end.location.lng;
 
       const map = L.map(directionsMapRef.current, { zoomControl: false }).setView([startLat, startLng], 7);
       L.control.zoom({ position: 'bottomright' }).addTo(map);
@@ -64,22 +72,13 @@ export default function DirectionsPanel() {
         popupAnchor: [1, -34],
         shadowSize: [41, 41]
       });
-      L.marker([startLat, startLng], { icon: greenIcon }).addTo(map).bindPopup('<b>Start: Kochi, Kerala</b>');
+      L.marker([startLat, startLng], { icon: greenIcon }).addTo(map).bindPopup(`<b>Start: ${directions.start.name}</b>`);
 
       // Add End Marker (default blue)
-      L.marker([endLat, endLng]).addTo(map).bindPopup('<b>Destination: Bangalore</b>');
+      L.marker([endLat, endLng]).addTo(map).bindPopup(`<b>Destination: ${directions.end.name}</b>`);
 
       // Draw route line coordinates (glowing teal polyline)
-      const routeCoords = [
-        [8.5241, 76.9366],
-        [9.9312, 76.2673],
-        [10.5276, 76.2144],
-        [10.7867, 76.6548],
-        [11.0168, 76.9558],
-        [11.5034, 77.2444],
-        [12.1812, 77.0142],
-        [12.9716, 77.5946]
-      ];
+      const routeCoords = (directions.geometry?.coordinates || []).map(([lng, lat]) => [lat, lng]);
 
       // Outer glow line
       L.polyline(routeCoords, {
@@ -106,6 +105,7 @@ export default function DirectionsPanel() {
 
   // Reset Leaflet instance when new directions query starts
   const startNewSearch = () => {
+    if (leafletInstance) leafletInstance.remove();
     setLeafletInstance(null);
   };
 
@@ -117,17 +117,19 @@ export default function DirectionsPanel() {
     setLoading(true);
 
     try {
-      const demoStart = { lat: 8.5241, lng: 76.9366 }; // Kochi
-      const demoEnd = { lat: 12.9716, lng: 77.5946 };   // Bangalore
+      if (!startLocation.trim() || !endLocation.trim()) {
+        throw new Error('Enter both a start location and a destination.');
+      }
+      const [start, end] = await Promise.all([geocode(startLocation), geocode(endLocation)]);
 
       const resp = await fetch('/api/directions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          startLat: demoStart.lat,
-          startLng: demoStart.lng,
-          endLat: demoEnd.lat,
-          endLng: demoEnd.lng,
+          startLat: start.location.lat,
+          startLng: start.location.lng,
+          endLat: end.location.lat,
+          endLng: end.location.lng,
           profile: mode,
         }),
       });
@@ -136,7 +138,7 @@ export default function DirectionsPanel() {
 
       if (data.success && data.data) {
         const route = Array.isArray(data.data) ? data.data[0] : data.data;
-        setDirections(route);
+        setDirections({ ...route, start, end });
       } else {
         setError(data.error || 'Failed to get directions');
       }
@@ -162,15 +164,6 @@ export default function DirectionsPanel() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }} className="page-enter-active">
-      {/* Header */}
-      <div className="page-header">
-        <div>
-          <span className="label" style={{ color: 'var(--color-primary-light)' }}>OSRM ROUTING ENGINE</span>
-          <h2 className="section-title">🧭 Route Directions</h2>
-          <p className="section-subtitle">Get optimized routes with turn-by-turn instructions powered by OSRM</p>
-        </div>
-      </div>
-
       {/* Form Card */}
       <div className="card" style={{ padding: '24px' }}>
         <form onSubmit={getDirections}>
@@ -192,7 +185,7 @@ export default function DirectionsPanel() {
                 />
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--color-text-faint)', marginTop: '4px' }}>
-                📍 Demo defaults to Kochi, Kerala
+                Search for a city, landmark, station, or address
               </div>
             </div>
             <div>
@@ -212,7 +205,7 @@ export default function DirectionsPanel() {
                 />
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--color-text-faint)', marginTop: '4px' }}>
-                🏁 Demo defaults to Bangalore
+                Routes use live OpenStreetMap and OSRM data
               </div>
             </div>
           </div>
@@ -265,6 +258,9 @@ export default function DirectionsPanel() {
             {/* Route Summary */}
             <div className="card" style={{ padding: '24px', background: 'radial-gradient(circle at 10% 10%, rgba(12, 171, 168, 0.08) 0%, rgba(24, 25, 36, 0.7) 100%)' }}>
               <span className="badge badge-primary" style={{ marginBottom: '12px' }}>Route Summary</span>
+              <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', marginBottom: '16px' }}>
+                {directions.start?.name} → {directions.end?.name}
+              </p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                 <div>
                   <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', marginBottom: '4px' }}>Total Distance</div>
@@ -342,7 +338,7 @@ export default function DirectionsPanel() {
           <div style={{ fontSize: '2.5rem', opacity: 0.5 }}>🧭</div>
           <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 'var(--text-md)', color: 'var(--color-text)' }}>Ready to Navigate</h3>
           <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', maxWidth: '400px' }}>
-            Click "Get Directions" to find the best route from Kochi to Bangalore using the OSRM routing engine.
+            Enter two places to find a live route using OpenStreetMap and the OSRM routing engine.
           </p>
         </div>
       )}

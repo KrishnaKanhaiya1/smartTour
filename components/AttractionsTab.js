@@ -24,12 +24,6 @@ export default function AttractionsTab({ defaultDestination }) {
     const [savedAttrs, setSavedAttrs] = useState({});
     const [resultsSubTab, setResultsSubTab] = useState('must-see');
 
-    useEffect(() => {
-        if (defaultDestination) {
-            setDestination(defaultDestination);
-        }
-    }, [defaultDestination]);
-
     const search = async (targetDest) => {
         const query = targetDest || destination;
         if (!query.trim()) return;
@@ -108,28 +102,17 @@ export default function AttractionsTab({ defaultDestination }) {
                     </div>
 
                     {/* Results Sub-Tabs */}
-                    <div style={{ display: 'flex', gap: '6px', borderBottom: '1px solid var(--border-subtle)', overflowX: 'auto', paddingBottom: '2px' }}>
+                    <div className="journey-subtabs">
                         {[
-                            { id: 'must-see', label: '🏛️ Attractions' },
-                            { id: 'gems', label: '💎 Hidden Gems' },
-                            { id: 'neighbourhoods', label: '🏘️ Neighbourhoods' },
-                            { id: 'trips', label: '🚌 Day Trips' },
+                            { id: 'must-see', label: 'Attractions' },
+                            { id: 'gems', label: 'Hidden Gems' },
+                            { id: 'neighbourhoods', label: 'Neighbourhoods' },
+                            { id: 'trips', label: 'Day Trips' },
                         ].map(sub => (
                             <button
                                 key={sub.id}
                                 onClick={() => setResultsSubTab(sub.id)}
-                                style={{
-                                    padding: '10px 16px',
-                                    fontSize: 'var(--text-xs)',
-                                    fontWeight: 700,
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    background: resultsSubTab === sub.id ? 'rgba(255,255,255,0.05)' : 'transparent',
-                                    color: resultsSubTab === sub.id ? 'var(--color-primary-light)' : 'var(--color-text-muted)',
-                                    borderBottom: resultsSubTab === sub.id ? '2px solid var(--color-primary)' : '2px solid transparent',
-                                    transition: 'all 0.2s',
-                                    whiteSpace: 'nowrap',
-                                }}
+                                className={`journey-subtab ${resultsSubTab === sub.id ? 'journey-subtab--active' : ''}`}
                             >
                                 {sub.label}
                             </button>

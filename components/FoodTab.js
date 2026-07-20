@@ -1,25 +1,23 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 export default function FoodTab({ initialData, defaultDestination }) {
     const [destination, setDestination] = useState(defaultDestination || '');
     const [dietary, setDietary] = useState([]);
     const [budget, setBudget] = useState('moderate');
-    const [foodData, setFoodData] = useState(null);
+    const [foodData, setFoodData] = useState(() => {
+        return initialData && initialData.destination?.toLowerCase() === (defaultDestination || '').toLowerCase()
+            ? initialData
+            : null;
+    });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    useEffect(() => {
-        if (defaultDestination) {
-            setDestination(defaultDestination);
-        }
-        if (initialData && initialData.destination?.toLowerCase() === (defaultDestination || '').toLowerCase()) {
-            setFoodData(initialData);
-        } else {
-            setFoodData(null);
-        }
-    }, [initialData, defaultDestination]);
+    const effectiveDestination = destination || defaultDestination || '';
+    const displayFoodData = initialData && initialData.destination?.toLowerCase() === (defaultDestination || '').toLowerCase()
+        ? initialData
+        : foodData;
 
     const DIETARY_OPTIONS = ['vegetarian', 'vegan', 'halal', 'kosher', 'gluten-free', 'no nuts'];
 
@@ -28,13 +26,13 @@ export default function FoodTab({ initialData, defaultDestination }) {
     };
 
     const getFood = async () => {
-        if (!destination.trim()) return;
+        if (!effectiveDestination.trim()) return;
         setLoading(true); setFoodData(null); setError(null);
         try {
             const r = await fetch('/api/agent/food', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ destination, budget, dietaryRestrictions: dietary })
+                body: JSON.stringify({ destination: effectiveDestination, budget, dietaryRestrictions: dietary })
             });
             const d = await r.json();
             if (d.success) setFoodData(d.data);
@@ -71,7 +69,7 @@ export default function FoodTab({ initialData, defaultDestination }) {
                         <div>
                             <label className="label">Destination</label>
                             <input className="input-field" placeholder="Tokyo, Rome, Bangkok, Mumbai..."
-                                value={destination} onChange={e => setDestination(e.target.value)}
+                                value={effectiveDestination} onChange={e => setDestination(e.target.value)}
                                 onKeyDown={e => e.key === 'Enter' && getFood()} />
                         </div>
                         <div>
@@ -98,7 +96,7 @@ export default function FoodTab({ initialData, defaultDestination }) {
                             })}
                         </div>
                     </div>
-                    <button className="btn-primary" onClick={getFood} disabled={loading || !destination.trim()}
+                    <button className="btn-primary" onClick={getFood} disabled={loading || !effectiveDestination.trim()}
                         style={{ width: '100%', justifyContent: 'center', height: '46px', marginTop: '8px' }}>
                         {loading ? <><span className="spinner" /> Discovering food...</> : 'Find Local Food'}
                     </button>
@@ -112,25 +110,25 @@ export default function FoodTab({ initialData, defaultDestination }) {
                 `}</style>
             </div>
 
-            {foodData && (
+            {displayFoodData && (
                 <div className="card-stagger" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     {/* Cuisine Overview */}
                     <div className="card" style={{ padding: '24px', background: 'radial-gradient(circle at 10% 10%, rgba(12, 171, 168, 0.08) 0%, rgba(24, 25, 36, 0.7) 100%)' }}>
-                        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', fontWeight: 800, marginBottom: '10px' }}>{foodData.destination} Food Scene</h3>
-                        <p style={{ color: 'var(--color-text-muted)', lineHeight: 1.7, fontSize: 'var(--text-sm)' }}>{foodData.cuisineOverview}</p>
+                        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', fontWeight: 800, marginBottom: '10px' }}>{displayFoodData.destination} Food Scene</h3>
+                        <p style={{ color: 'var(--color-text-muted)', lineHeight: 1.7, fontSize: 'var(--text-sm)' }}>{displayFoodData.cuisineOverview}</p>
                         <div style={{ display: 'flex', gap: '10px', marginTop: '14px', flexWrap: 'wrap' }}>
-                            {foodData.vegetarianFriendly && <span className="badge badge-success">🥗 Veg Friendly</span>}
-                            {foodData.halalFriendly && <span className="badge badge-warning">🌙 Halal Friendly</span>}
-                            {foodData.drinkingWaterSafety && <span className="badge badge-cyan">💧 {foodData.drinkingWaterSafety}</span>}
+                            {displayFoodData.vegetarianFriendly && <span className="badge badge-success">🥗 Veg Friendly</span>}
+                            {displayFoodData.halalFriendly && <span className="badge badge-warning">🌙 Halal Friendly</span>}
+                            {displayFoodData.drinkingWaterSafety && <span className="badge badge-cyan">💧 {displayFoodData.drinkingWaterSafety}</span>}
                         </div>
                     </div>
 
                     {/* Must Try Dishes */}
-                    {foodData.mustTryDishes?.length > 0 && (
+                    {displayFoodData.mustTryDishes?.length > 0 && (
                         <div>
                             <h3 style={{ fontWeight: 800, fontSize: '1.15rem', marginBottom: '16px', fontFamily: 'var(--font-display)' }}>⭐ Must-Try Dishes</h3>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: '16px' }}>
-                                {foodData.mustTryDishes.map((dish, i) => (
+                                {displayFoodData.mustTryDishes.map((dish, i) => (
                                     <div key={i} className="card" style={{ padding: '20px' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
                                             <h4 style={{ fontWeight: 700, color: 'var(--color-text)', fontSize: 'var(--text-sm)' }}>{dish.name}</h4>
@@ -152,11 +150,11 @@ export default function FoodTab({ initialData, defaultDestination }) {
                     )}
 
                     {/* Top Restaurants */}
-                    {foodData.topRestaurants?.length > 0 && (
+                    {displayFoodData.topRestaurants?.length > 0 && (
                         <div>
                             <h3 style={{ fontWeight: 800, fontSize: '1.15rem', marginBottom: '16px', fontFamily: 'var(--font-display)' }}>🍴 Top Restaurants</h3>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                {foodData.topRestaurants.map((r, i) => (
+                                {displayFoodData.topRestaurants.map((r, i) => (
                                     <div key={i} className="card" style={{ padding: '20px', display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
                                         <div style={{ width: '48px', height: '48px', background: 'var(--color-primary-subtle)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyActions: 'center', justifyContent: 'center', fontSize: '1.4rem', flexShrink: 0 }}>🍽️</div>
                                         <div style={{ flex: 1 }}>
@@ -172,6 +170,12 @@ export default function FoodTab({ initialData, defaultDestination }) {
                                             {r.mustOrder && <p style={{ color: 'var(--color-primary-light)', fontSize: '0.82rem', marginTop: '4px' }}>⭐ Try: {r.mustOrder}</p>}
                                         </div>
                                         {r.localFavorite && <span className="badge badge-primary" style={{ whiteSpace: 'nowrap' }}>❤️ Local Fav</span>}
+                                        {r.verified && <span className="badge badge-success" style={{ whiteSpace: 'nowrap' }}>🟢 Verified</span>}
+                                        {r.mapUrl && (
+                                            <a href={r.mapUrl} target="_blank" rel="noreferrer" className="badge badge-cyan" style={{ whiteSpace: 'nowrap', textDecoration: 'none' }}>
+                                                Google Maps
+                                            </a>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -179,11 +183,11 @@ export default function FoodTab({ initialData, defaultDestination }) {
                     )}
 
                     {/* Budget Tips */}
-                    {foodData.foodBudgetTips?.length > 0 && (
+                    {displayFoodData.foodBudgetTips?.length > 0 && (
                         <div className="card" style={{ padding: '20px' }}>
                             <h4 style={{ fontWeight: 800, marginBottom: '12px', color: 'var(--color-warning)', fontFamily: 'var(--font-display)' }}>💰 Food Budget Tips</h4>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px' }}>
-                                {foodData.foodBudgetTips.map((tip, i) => (
+                                {displayFoodData.foodBudgetTips.map((tip, i) => (
                                     <p key={i} style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', paddingLeft: '12px', borderLeft: '2px solid var(--color-warning)' }}>{tip}</p>
                                 ))}
                             </div>
@@ -192,13 +196,13 @@ export default function FoodTab({ initialData, defaultDestination }) {
                 </div>
             )}
 
-            {error && !foodData && (
+            {error && !displayFoodData && (
                 <div className="card" style={{ padding: '24px', background: 'var(--color-error-subtle)', border: '1px solid var(--color-error)' }}>
                     <p style={{ color: 'var(--color-error)', fontWeight: 600, textAlign: 'center' }}>⚠️ {error}</p>
                 </div>
             )}
 
-            {!foodData && !loading && !error && (
+            {!displayFoodData && !loading && !error && (
                 <div className="card" style={{ padding: '60px 40px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
                     <style>{`
                         @keyframes steam {

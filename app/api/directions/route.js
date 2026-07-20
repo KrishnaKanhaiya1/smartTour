@@ -1,76 +1,55 @@
-// app/api/directions/route.js
 import { NextResponse } from 'next/server';
 import { RoutingService } from '@/lib/services/routing';
 
-export async function GET(request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    
-    const startLat = parseFloat(searchParams.get('startLat'));
-    const startLng = parseFloat(searchParams.get('startLng'));
-    const endLat = parseFloat(searchParams.get('endLat'));
-    const endLng = parseFloat(searchParams.get('endLng'));
-    const profile = searchParams.get('profile') || 'car';
+const PROFILES = new Set(['car', 'bike', 'foot']);
 
-    if (!startLat || !startLng || !endLat || !endLng) {
-      return NextResponse.json(
-        { error: 'Start and end coordinates are required' },
-        { status: 400 }
-      );
-    }
+function parseRouteInput(input) {
+  const startLat = Number(input.startLat);
+  const startLng = Number(input.startLng);
+  const endLat = Number(input.endLat);
+  const endLng = Number(input.endLng);
+  const profile = PROFILES.has(input.profile) ? input.profile : 'car';
 
-    const directions = await RoutingService.getDirections(
-      startLat,
-      startLng,
-      endLat,
-      endLng,
-      profile
-    );
-
-    return NextResponse.json({
-      success: true,
-      data: directions
-    });
-  } catch (error) {
-    console.error('Directions API Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to get directions', details: error.message },
-      { status: 500 }
-    );
+  if (![startLat, startLng, endLat, endLng].every(Number.isFinite)) {
+    return { error: 'Start and destination coordinates are required.' };
   }
+  if (Math.abs(startLat) > 90 || Math.abs(endLat) > 90 || Math.abs(startLng) > 180 || Math.abs(endLng) > 180) {
+    return { error: 'One or more route coordinates are outside the valid range.' };
+  }
+  return { startLat, startLng, endLat, endLng, profile };
+}
+
+async function getRoute(input) {
+  const parsed = parseRouteInput(input);
+  if (parsed.error) return { error: parsed.error, status: 400 };
+
+  try {
+    const data = await RoutingService.getDirections(
+      parsed.startLat, parsed.startLng, parsed.endLat, parsed.endLng, parsed.profile
+    );
+    return { data };
+  } catch (error) {
+    console.error('Routing service failed:', error);
+    return { error: 'Live routing is temporarily unavailable. Please try again shortly.', status: 502 };
+  }
+}
+
+function response(result) {
+  return NextResponse.json(
+    result.data ? { success: true, data: result.data } : { success: false, error: result.error },
+    { status: result.status || 200 }
+  );
+}
+
+export async function GET(request) {
+  const { searchParams } = new URL(request.url);
+  return response(await getRoute(Object.fromEntries(searchParams)));
 }
 
 export async function POST(request) {
   try {
-    const body = await request.json();
-    
-    const { startLat, startLng, endLat, endLng, profile = 'car' } = body;
-
-    if (!startLat || !startLng || !endLat || !endLng) {
-      return NextResponse.json(
-        { error: 'Start and end coordinates are required' },
-        { status: 400 }
-      );
-    }
-
-    const alternatives = await RoutingService.getAlternativeRoutes(
-      startLat,
-      startLng,
-      endLat,
-      endLng,
-      profile
-    );
-
-    return NextResponse.json({
-      success: true,
-      count: alternatives.length,
-      data: alternatives
-    });
-  } catch (error) {
-    console.error('Alternative Routes API Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to get routes', details: error.message },
-      { status: 500 }
-    );
+    return response(await getRoute(await request.json()));
+  } catch {
+    return NextResponse.json({ success: false, error: 'Invalid route request.' }, { status: 400 });
   }
 }

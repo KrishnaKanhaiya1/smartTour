@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import AttractionsTab from '@/components/AttractionsTab';
 import FoodTab from '@/components/FoodTab';
 import SafetyTab from '@/components/SafetyTab';
@@ -12,19 +12,20 @@ import DirectionsPanel from '@/components/DirectionsPanel';
 import ChatWidget from '@/components/ChatWidget';
 import BudgetTracker from '@/components/BudgetTracker';
 import SOSButton from '@/components/SOSButton';
+import { db } from '@/lib/db';
 
 const TABS = [
-  { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
-  { id: 'journey', label: 'Journey', icon: '✈️' },
-  { id: 'attractions', label: 'Attractions', icon: '🏛️' },
-  { id: 'food', label: 'Food', icon: '🍽️' },
-  { id: 'hotels', label: 'Hotels', icon: '🏨' },
-  { id: 'guides', label: 'Guides', icon: '👨‍🏫' },
-  { id: 'safety', label: 'Safety', icon: '🛡️' },
-  { id: 'translate', label: 'Translate', icon: '🌐' },
-  { id: 'budget', label: 'Budget', icon: '💰' },
-  { id: 'map', label: 'Map', icon: '🗺️' },
-  { id: 'directions', label: 'Directions', icon: '🧭' },
+  { id: 'dashboard', label: 'Dashboard', icon: '⌘' },
+  { id: 'journey', label: 'Journey', icon: '✈' },
+  { id: 'attractions', label: 'Attractions', icon: '◈' },
+  { id: 'food', label: 'Food', icon: '◉' },
+  { id: 'hotels', label: 'Hotels', icon: '⊞' },
+  { id: 'guides', label: 'Guides', icon: '◎' },
+  { id: 'safety', label: 'Safety', icon: '◇' },
+  { id: 'translate', label: 'Translate', icon: '⟐' },
+  { id: 'budget', label: 'Budget', icon: '◆' },
+  { id: 'map', label: 'Map', icon: '⊕' },
+  { id: 'directions', label: 'Directions', icon: '→' },
 ];
 
 const STATS = [
@@ -37,91 +38,136 @@ const STATS = [
 const INTEREST_OPTIONS = ['Adventure', 'Food', 'Nature', 'History', 'Nightlife', 'Shopping', 'Culture', 'Wellness'];
 
 const TRAVEL_TYPES = [
-  { id: 'Solo', label: 'Solo 🧍', desc: 'Independent travel' },
-  { id: 'Couple', label: 'Couple 💑', desc: 'Romance & sharing' },
-  { id: 'Family', label: 'Family 👨‍👩‍👧‍👦', desc: 'Kid-friendly pace' },
-  { id: 'Group', label: 'Group 👥', desc: 'Shared budget & fun' }
+  { id: 'Solo', label: 'Solo', desc: 'Independent travel' },
+  { id: 'Couple', label: 'Couple', desc: 'Romance & sharing' },
+  { id: 'Family', label: 'Family', desc: 'Kid-friendly pace' },
+  { id: 'Group', label: 'Group', desc: 'Shared budget & fun' },
 ];
 
 const MOOD_OPTIONS = [
-  { id: 'Relaxed', label: 'Relaxed 😌', desc: 'Leisurely pace' },
-  { id: 'Adventure', label: 'Adventure 🤠', desc: 'Thrilling & active' },
-  { id: 'Luxury', label: 'Luxury 💎', desc: 'Premium style' },
-  { id: 'Spiritual', label: 'Spiritual 🙏', desc: 'Calming & cultural' },
-  { id: 'Party', label: 'Party 🎉', desc: 'Social & nightlife' }
+  { id: 'Relaxed', label: 'Relaxed', desc: 'Leisurely pace' },
+  { id: 'Adventure', label: 'Adventure', desc: 'Thrilling & active' },
+  { id: 'Luxury', label: 'Luxury', desc: 'Premium style' },
+  { id: 'Spiritual', label: 'Spiritual', desc: 'Calming & cultural' },
+  { id: 'Party', label: 'Party', desc: 'Social & nightlife' },
 ];
 
+const AGENTS = [
+  { title: 'User Context Agent', desc: 'Builds a traveler profile from preferences, budget, and travel style to personalize recommendations.', wide: true, icon: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z' },
+  { title: 'Itinerary Planner', desc: 'Creates optimized day-by-day travel schedules with real activities, meals, and logistics.', icon: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z' },
+  { title: 'Food Expert', desc: 'Discovers must-try dishes, top restaurants, and safety details for any destination.', icon: 'M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8zM6 1v3M10 1v3M14 1v3' },
+  { title: 'Translation Agent', desc: 'Real-time AI translation with phonetic guides and cultural context for 16+ languages.', icon: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z' },
+  { title: 'Guide Matcher', desc: 'AI-matches you with local expert guides based on language, interests, and budget.', icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75' },
+  { title: 'Safety Advisor', desc: 'Comprehensive safety reports with verified emergency contacts, scam alerts, and health warnings.', wide: true, icon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z' },
+];
+
+const QUICK_ACTIONS = [
+  { label: 'Smart Planner', desc: 'Generate customized plans', tab: 'journey', icon: 'M9 20l-5.447-2.724A1 1 0 0 1 3 16.382V5.618a1 1 0 0 1 1.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0 0 21 18.382V7.618a1 1 0 0 0-.553-.894L15 4m0 13V4m0 0L9 7' },
+  { label: 'Food Expert', desc: 'Explore local cuisine', tab: 'food', icon: 'M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z' },
+  { label: 'Translator', desc: 'Translate in 16+ languages', tab: 'translate', icon: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM2 12h20' },
+  { label: 'Emergency Hub', desc: 'Stay safe and call SOS', tab: 'safety', icon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z', danger: true },
+];
+
+/* ── Helpers ──────────────────────────────────── */
+
+function parseCostToNumber(costValue) {
+  if (typeof costValue === 'number' && Number.isFinite(costValue)) return costValue;
+  const raw = String(costValue || '').replace(/,/g, '');
+  const match = raw.match(/(\d+(\.\d+)?)/);
+  return match ? Number(match[1]) : 0;
+}
+
+function deriveTripExpenses(journey) {
+  if (!journey?.itinerary?.days) return [];
+  const expenses = [];
+  journey.itinerary.days.forEach((day) => {
+    (day.activities || []).forEach((activity) => {
+      const parsed = parseCostToNumber(activity.cost);
+      if (parsed > 0) {
+        expenses.push({
+          name: activity.name,
+          amount: parsed,
+          category: activity.category,
+          description: `Day ${day.day}: ${activity.name}`,
+        });
+      }
+    });
+  });
+  return expenses;
+}
+
+function SvgIcon({ d, size = 20, stroke = 'currentColor', fill = 'none' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d={d} />
+    </svg>
+  );
+}
+
+/* ── StatCard ─────────────────────────────────── */
+
 function StatCard({ value, label }) {
-  const [count, setCount] = useState('0');
+  const numericPart = parseInt(value, 10);
+  const hasPlus = value.includes('+');
+  const isSpecial = value.includes('/');
+  const [count, setCount] = useState(() => {
+    if (isNaN(numericPart) || isSpecial) return value;
+    return '0';
+  });
   const elementRef = useRef(null);
-  
+
   useEffect(() => {
-    let observer;
-    let frameId;
-    
-    const numericPart = parseInt(value, 10);
-    const hasPlus = value.includes('+');
-    const isSpecial = value.includes('/'); // e.g. 24/7
-    
-    if (isNaN(numericPart) || isSpecial) {
-      setCount(value);
-      return;
-    }
-    
-    const duration = 1500; // 1.5s
+    if (isNaN(numericPart) || isSpecial) return;
+    const duration = 1500;
     let startTime = null;
-    
+    let frameId = null;
+    let observer = null;
+
     const animate = (timestamp) => {
       if (!startTime) startTime = timestamp;
       const progress = Math.min((timestamp - startTime) / duration, 1);
-      const easeProgress = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+      const easeProgress = 1 - Math.pow(1 - progress, 3);
       const currentVal = Math.floor(easeProgress * numericPart);
-      
       setCount(hasPlus ? `${currentVal}+` : `${currentVal}`);
-      
       if (progress < 1) {
         frameId = requestAnimationFrame(animate);
       } else {
         setCount(value);
       }
     };
-    
+
     observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) {
         frameId = requestAnimationFrame(animate);
         observer.unobserve(entry.target);
       }
     }, { threshold: 0.1 });
-    
-    if (elementRef.current) {
-      observer.observe(elementRef.current);
-    }
-    
+
+    if (elementRef.current) observer.observe(elementRef.current);
+
     return () => {
       if (observer) observer.disconnect();
       if (frameId) cancelAnimationFrame(frameId);
     };
-  }, [value]);
-  
+  }, [numericPart, hasPlus, isSpecial, value]);
+
   return (
-    <div ref={elementRef} style={{ padding: '24px 20px', textAlign: 'center' }}>
-      <div style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-2xl)', fontWeight: 800, color: 'var(--color-primary)' }}>
-        {count}
-      </div>
-      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', fontWeight: 400, textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '4px', fontFamily: 'var(--font-body)' }}>
-        {label}
-      </div>
+    <div ref={elementRef} className="stats-strip__item">
+      <div className="stats-strip__value">{count}</div>
+      <div className="stats-strip__label">{label}</div>
     </div>
   );
 }
 
+/* ── Main Page ────────────────────────────────── */
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  
-  // Tab sliding indicator refs and style
+
+  // Tab sliding indicator
   const tabRefs = useRef({});
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
-  
+
   // Journey state
   const [destination, setDestination] = useState('');
   const [budgetVal, setBudgetVal] = useState(30000);
@@ -129,25 +175,117 @@ export default function Home() {
   const [selectedInterests, setSelectedInterests] = useState(['Food', 'Culture']);
   const [selectedTravelType, setSelectedTravelType] = useState('Couple');
   const [selectedMood, setSelectedMood] = useState('Relaxed');
-  
+
   const [journeyLoading, setJourneyLoading] = useState(false);
   const [journeyError, setJourneyError] = useState(null);
   const [journeyResult, setJourneyResult] = useState(null);
-  const [expandedDay, setExpandedDay] = useState(0); 
-  const [journeySubTab, setJourneySubTab] = useState('itinerary'); 
+  const [expandedDay, setExpandedDay] = useState(0);
+  const [journeySubTab, setJourneySubTab] = useState('itinerary');
+  const [activeMapDay, setActiveMapDay] = useState(1);
+  const [tripHydrated, setTripHydrated] = useState(false);
 
   useEffect(() => {
     const activeEl = tabRefs.current[activeTab];
     if (activeEl) {
-      setIndicatorStyle({
-        left: activeEl.offsetLeft,
-        width: activeEl.offsetWidth,
-      });
+      setIndicatorStyle({ left: activeEl.offsetLeft, width: activeEl.offsetWidth });
     }
   }, [activeTab]);
 
+  useEffect(() => {
+    const hydrateTrip = async () => {
+      try {
+        const latestTrip = await db.trips.orderBy('savedAt').last();
+        if (!latestTrip?.payload) { setTripHydrated(true); return; }
+        setDestination(latestTrip.destination || '');
+        setBudgetVal(Number(latestTrip.budget || 30000));
+        setDaysVal(Number(latestTrip.tripDuration || 3));
+        setSelectedInterests(latestTrip.selectedInterests || ['Food', 'Culture']);
+        setSelectedTravelType(latestTrip.selectedTravelType || 'Couple');
+        setSelectedMood(latestTrip.selectedMood || 'Relaxed');
+        setJourneyResult(latestTrip.payload);
+        setExpandedDay(0);
+        setActiveMapDay(1);
+      } catch (error) {
+        console.error('Trip hydrate error:', error);
+      } finally {
+        setTripHydrated(true);
+      }
+    };
+    hydrateTrip();
+  }, []);
+
+  useEffect(() => {
+    if (!tripHydrated || !journeyResult || !destination) return;
+    const saveTrip = async () => {
+      try {
+        const start = new Date();
+        const end = new Date(start);
+        end.setDate(start.getDate() + Number(daysVal || 1) - 1);
+        await db.trips.add({
+          destination,
+          startDate: start.toISOString(),
+          endDate: end.toISOString(),
+          savedAt: new Date().toISOString(),
+          budget: budgetVal,
+          tripDuration: daysVal,
+          selectedInterests,
+          selectedTravelType,
+          selectedMood,
+          payload: journeyResult,
+        });
+      } catch (error) {
+        console.error('Trip save error:', error);
+      }
+    };
+    saveTrip();
+  }, [tripHydrated, journeyResult, destination, budgetVal, daysVal, selectedInterests, selectedTravelType, selectedMood]);
+
+  const itineraryDays = useMemo(() => journeyResult?.itinerary?.days || [], [journeyResult]);
+  const itineraryLocations = useMemo(() => {
+    if (journeyResult?.locations?.length) return journeyResult.locations;
+    return itineraryDays.flatMap((day) => (
+      (day.activities || [])
+        .filter((act) => act?.location?.lat && act?.location?.lng)
+        .map((act) => ({
+          name: act.location.name || act.name,
+          lat: act.location.lat,
+          lng: act.location.lng,
+          day: day.day,
+          category: act.category,
+          verified: Boolean(act.verified),
+          mapUrl: act.mapUrl,
+          osmId: act.osmId,
+        }))
+    ));
+  }, [journeyResult, itineraryDays]);
+
+  const budgetSeedExpenses = useMemo(() => deriveTripExpenses(journeyResult), [journeyResult]);
+  const budgetSeedAmount = useMemo(
+    () => parseCostToNumber(journeyResult?.itinerary?.totalEstimatedCost) || budgetVal,
+    [journeyResult, budgetVal]
+  );
+
+  const handlePrintTrip = () => window.print();
+
+  const handleCopyTripForWhatsApp = async () => {
+    if (!journeyResult?.itinerary?.days?.length) return;
+    const summary = [
+      `SmartTour itinerary for ${destination}`,
+      `Duration: ${daysVal} day(s)`,
+      `Estimated cost: ${journeyResult?.itinerary?.totalEstimatedCost || 'N/A'}`,
+      ...(journeyResult?.itinerary?.days || []).map((day) => `Day ${day.day}: ${(day.activities || []).map((a) => a.name).join(', ')}`),
+    ].join('\n');
+    try {
+      await navigator.clipboard.writeText(summary);
+      const link = `https://wa.me/?text=${encodeURIComponent(summary)}`;
+      window.open(link, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      console.error('WhatsApp copy failed:', error);
+    }
+  };
+
   const toggleInterest = (interest) => {
-    setSelectedInterests(prev => 
+    setSelectedInterests(prev =>
       prev.includes(interest) ? prev.filter(i => i !== interest) : [...prev, interest]
     );
   };
@@ -156,6 +294,8 @@ export default function Home() {
     if (!destination.trim()) return;
     setJourneyLoading(true);
     setJourneyError(null);
+    // A request is for the currently configured trip. Do not keep displaying a
+    // previously generated destination while the new one is loading or failed.
     setJourneyResult(null);
 
     try {
@@ -178,6 +318,7 @@ export default function Home() {
       if (d.success) {
         setJourneyResult(d.data);
         setExpandedDay(0);
+        setActiveMapDay(1);
       } else {
         setJourneyError(d.error || 'Failed to generate travel plan.');
       }
@@ -189,413 +330,146 @@ export default function Home() {
     }
   };
 
+  /* ── Render ────────────────────────────────── */
+
   return (
     <div style={{ minHeight: '100vh', position: 'relative', zIndex: 1 }}>
-      {/* === Header === */}
-      <header style={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 100,
-        background: 'rgba(10,11,15,0.85)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        borderBottom: '1px solid var(--border-subtle)',
-      }}>
-        <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-              <circle cx="12" cy="12" r="10" />
-              <polygon points="16.24,7.76 14.12,14.12 7.76,16.24 9.88,9.88" fill="var(--color-primary-glow)" />
-            </svg>
+      {/* ═══ Header ═══ */}
+      <header className="app-header">
+        <div className="app-header__inner">
+          <div className="app-header__brand">
+            <div className="app-header__logo">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <polygon points="16.24,7.76 14.12,14.12 7.76,16.24 9.88,9.88" fill="var(--color-primary-glow)" />
+              </svg>
+            </div>
             <div>
-              <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '18px', fontWeight: 700, color: 'var(--color-text)', lineHeight: 1.1 }}>SmartTour</h1>
-              <p style={{ fontSize: '0.72rem', color: 'var(--color-text-faint)', fontWeight: 500, letterSpacing: '0.5px' }}>AGENTIC AI TRAVEL OPERATING SYSTEM</p>
+              <h1 className="app-header__title">SmartTour</h1>
+              <p className="app-header__tagline">Agentic AI Travel System</p>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="app-header__status">
             <span className="pulse-dot" />
-            <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>6 AGENTS ONLINE</span>
+            <span>6 Agents Online</span>
           </div>
         </div>
       </header>
 
-      {/* === Tab Navigation === */}
-      <nav style={{
-        position: 'sticky',
-        top: '69px',
-        zIndex: 90,
-        background: 'rgba(10,11,15,0.9)',
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
-        borderBottom: '1px solid var(--border-subtle)',
-      }}>
-        <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 24px', overflowX: 'auto', position: 'relative' }}>
-          <div style={{ display: 'flex', gap: '2px', minWidth: 'max-content', position: 'relative' }}>
+      {/* ═══ Navigation ═══ */}
+      <nav className="app-nav">
+        <div className="app-nav__inner">
+          <div className="app-nav__tabs">
             {TABS.map(tab => (
-              <button 
-                key={tab.id} 
+              <button
+                key={tab.id}
                 ref={el => { tabRefs.current[tab.id] = el; }}
-                onClick={() => setActiveTab(tab.id)} 
-                style={{
-                  padding: '16px 20px',
-                  fontSize: '0.82rem',
-                  fontWeight: 600,
-                  fontFamily: 'var(--font-body)',
-                  border: 'none',
-                  cursor: 'pointer',
-                  background: 'transparent',
-                  color: activeTab === tab.id ? 'var(--color-primary-light)' : 'var(--color-text-muted)',
-                  transition: 'all 0.25s ease',
-                  whiteSpace: 'nowrap',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  position: 'relative',
-                  zIndex: 2,
-                }}
+                onClick={() => setActiveTab(tab.id)}
+                className={`app-nav__tab ${activeTab === tab.id ? 'app-nav__tab--active' : ''}`}
               >
-                <span style={{ fontSize: '1rem' }}>{tab.icon}</span>
+                <span className="app-nav__tab-icon">{tab.icon}</span>
                 {tab.label}
               </button>
             ))}
-            {/* Sliding Underline Indicator */}
-            <div style={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              height: '2px',
-              background: 'var(--color-primary)',
-              width: `${indicatorStyle.width}px`,
-              transform: `translateX(${indicatorStyle.left}px)`,
-              transition: 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), width 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-              zIndex: 1,
-            }} />
+            <div
+              className="app-nav__indicator"
+              style={{
+                width: `${indicatorStyle.width}px`,
+                transform: `translateX(${indicatorStyle.left}px)`,
+              }}
+            />
           </div>
         </div>
       </nav>
 
-      {/* === Main Content === */}
-      <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '32px 24px', minHeight: 'calc(100vh - 200px)' }}>
+      {/* ═══ Main ═══ */}
+      <main className="app-main">
 
-        {/* DASHBOARD */}
+        {/* ──── DASHBOARD ──── */}
         {activeTab === 'dashboard' && (
-          <div key={`tab-content-${activeTab}`} className="page-enter-active" style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
+          <div key="tab-dashboard" className="page-enter-active" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
             {/* Hero */}
-            <div className="glass-card" style={{
-              padding: '80px 48px',
-              background: 'radial-gradient(circle at center, rgba(12, 171, 168, 0.1) 0%, rgba(24, 25, 36, 0.7) 100%)',
-              borderColor: 'var(--color-primary-glow)',
-              textAlign: 'center',
-              position: 'relative',
-              overflow: 'hidden',
-              minHeight: '400px',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}>
-              <div style={{ position: 'relative', zIndex: 1, maxWidth: '700px' }}>
-                {/* Orbital Rotating SVG Compass */}
-                <div style={{ position: 'relative', width: '120px', height: '120px', margin: '0 auto 24px' }}>
-                  <svg width="120" height="120" viewBox="0 0 120 120" style={{ position: 'absolute', top: 0, left: 0, animation: 'spin 12s linear infinite' }}>
-                    <circle cx="60" cy="60" r="50" fill="none" stroke="var(--color-primary)" strokeWidth="1.5" strokeDasharray="4 8" opacity="0.6" />
-                    <circle cx="60" cy="10" r="4" fill="var(--color-primary-light)" />
-                  </svg>
-                  <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', top: '30px', left: '30px', animation: 'spin 60s linear infinite' }}>
+            <div className="hero">
+              <div className="hero__content">
+                <div className="hero__icon">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="12" cy="12" r="10" />
-                    <polygon points="16.24,7.76 14.12,14.12 7.76,16.24 9.88,9.88" fill="var(--color-primary)" opacity="0.1" />
                     <polygon points="16.24,7.76 14.12,14.12 7.76,16.24 9.88,9.88" />
                   </svg>
                 </div>
-
-                <h2 style={{
-                  fontFamily: 'var(--font-display)',
-                  fontSize: 'var(--text-3xl)',
-                  fontWeight: 800,
-                  letterSpacing: '-0.02em',
-                  color: 'var(--color-text)',
-                  marginBottom: '16px',
-                  lineHeight: 1.1,
-                }}>
-                  Explore Without Limits
-                </h2>
-                <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-lg)', maxWidth: '52ch', margin: '0 auto 32px', lineHeight: 1.7 }}>
-                  An AI-powered smart travel operating system helping tourists plan itineraries, navigate routes, find street food, translate on the fly, and stay secure.
+                <h2 className="hero__title">Explore Without Limits</h2>
+                <p className="hero__subtitle">
+                  An AI-powered smart travel system helping tourists plan itineraries, navigate routes, find street food, translate on the fly, and stay secure.
                 </p>
-                <div style={{ display: 'flex', gap: '14px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                  <button className="btn-primary" onClick={() => setActiveTab('journey')} style={{ padding: '14px 28px' }}>
-                    Explore Attractions
+                <div className="hero__actions">
+                  <button className="btn-primary" onClick={() => setActiveTab('journey')} style={{ padding: '14px 28px', fontSize: 'var(--text-base)' }}>
+                    Plan Your Journey
                   </button>
-                  <button className="btn-ghost" onClick={() => setActiveTab('food')} style={{ padding: '14px 28px' }}>
+                  <button className="btn-secondary" onClick={() => setActiveTab('food')} style={{ padding: '14px 28px' }}>
                     Discover Food
                   </button>
                 </div>
-
-                {/* Animated Chevron Down Bounce */}
-                <style>{`
-                  @keyframes bounce {
-                    0%, 100% { transform: translateY(0); }
-                    50% { transform: translateY(-8px); }
-                  }
-                `}</style>
-                <div style={{ marginTop: '48px', animation: 'bounce 2s infinite', display: 'inline-block' }}>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
-                </div>
               </div>
             </div>
 
-            {/* Quick Actions Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-              <div className="card" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '14px', padding: '20px' }} onClick={() => setActiveTab('journey')}>
-                <div style={{ fontSize: '2rem' }}>🗺️</div>
-                <div>
-                  <h4 style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-text)' }}>Smart Planner</h4>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Generate customized plans</p>
+            {/* Quick Actions */}
+            <div className="quick-actions">
+              {QUICK_ACTIONS.map((qa, i) => (
+                <div key={i} className={`card card--interactive ${qa.danger ? 'card--glow' : ''}`} onClick={() => setActiveTab(qa.tab)}>
+                  <div className="quick-action-card">
+                    <div className="quick-action-card__icon" style={qa.danger ? { background: 'var(--color-error-subtle)', color: 'var(--color-error)' } : {}}>
+                      <SvgIcon d={qa.icon} size={20} />
+                    </div>
+                    <div>
+                      <div className="quick-action-card__title">{qa.label}</div>
+                      <div className="quick-action-card__desc">{qa.desc}</div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="card" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '14px', padding: '20px' }} onClick={() => setActiveTab('food')}>
-                <div style={{ fontSize: '2rem' }}>🍜</div>
-                <div>
-                  <h4 style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-text)' }}>Food Expert</h4>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Explore local cuisine</p>
-                </div>
-              </div>
-              <div className="card" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '14px', padding: '20px' }} onClick={() => setActiveTab('translate')}>
-                <div style={{ fontSize: '2rem' }}>🌐</div>
-                <div>
-                  <h4 style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-text)' }}>Real-time Translator</h4>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Translate in 16+ languages</p>
-                </div>
-              </div>
-              <div className="card" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '14px', padding: '20px', border: '1px solid rgba(239, 68, 68, 0.3)' }} onClick={() => setActiveTab('safety')}>
-                <div style={{ fontSize: '2rem' }}>🚨</div>
-                <div>
-                  <h4 style={{ fontWeight: 700, fontSize: '0.9rem', color: '#ff7675' }}>Emergency Hub</h4>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Stay safe and call SOS</p>
-                </div>
-              </div>
+              ))}
             </div>
 
-            {/* Stats Bar */}
-            <div className="reveal" style={{
-              background: 'var(--color-surface)',
-              borderTop: '1px solid var(--border-subtle)',
-              borderBottom: '1px solid var(--border-subtle)',
-              margin: '20px 0',
-            }}>
-              <div style={{
-                maxWidth: '1400px',
-                margin: '0 auto',
-              }} className="stats-grid">
-                {STATS.map((s, i) => (
-                  <StatCard key={i} value={s.value} label={s.label} />
+            {/* Stats */}
+            <div className="stats-strip reveal">
+              {STATS.map((s, i) => (
+                <StatCard key={i} value={s.value} label={s.label} />
+              ))}
+            </div>
+
+            {/* Agent Feature Cards */}
+            <div>
+              <h3 className="section-title" style={{ marginBottom: 'var(--space-6)' }}>Powered by 6 Specialized AI Agents</h3>
+              <div className="features-grid card-stagger">
+                {AGENTS.map((agent, i) => (
+                  <div key={i} className={`card feature-card ${agent.wide ? 'feature-card--wide' : ''}`}>
+                    <div className="feature-card__icon">
+                      <SvgIcon d={agent.icon} size={20} />
+                    </div>
+                    <div className="feature-card__title">{agent.title}</div>
+                    <div className="feature-card__desc">{agent.desc}</div>
+                  </div>
                 ))}
               </div>
-              <style dangerouslySetInnerHTML={{ __html: `
-                .stats-grid {
-                  display: grid;
-                  grid-template-columns: repeat(2, 1fr);
-                }
-                .stats-grid > div {
-                  border-bottom: 1px solid var(--border-subtle);
-                }
-                .stats-grid > div:nth-child(even) {
-                  border-left: 1px solid var(--border-subtle);
-                }
-                .stats-grid > div:nth-child(3), .stats-grid > div:nth-child(4) {
-                  border-bottom: none;
-                }
-                @media (min-width: 768px) {
-                  .stats-grid {
-                    grid-template-columns: repeat(4, 1fr);
-                  }
-                  .stats-grid > div {
-                    border-bottom: none !important;
-                    border-left: none !important;
-                  }
-                  .stats-grid > div:not(:first-child) {
-                    border-left: 1px solid var(--border-subtle) !important;
-                  }
-                }
-              `}} />
             </div>
 
-            {/* Agent Cards (Bento Grid) */}
-            <div>
-              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', fontWeight: 800, marginBottom: '24px', color: 'var(--color-text)' }}>
-                Powered by 6 Specialized AI Agents
-              </h3>
-              <div className="card-stagger bento-grid">
-                {/* Card 1: User Context Agent (2 cols) */}
-                <div className="card bento-col-2" style={{ background: 'radial-gradient(circle at 10% 10%, rgba(12, 171, 168, 0.08) 0%, rgba(24, 25, 36, 0.7) 70%)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
-                      <h4 style={{ fontWeight: 700, fontFamily: 'var(--font-display)', fontSize: 'var(--text-md)' }}>User Context Agent</h4>
-                    </div>
-                    <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
-                      Builds a traveler profile from preferences, budget, and travel style to personalize recommendations.
-                    </p>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
-                  </div>
-                </div>
-
-                {/* Card 2: Itinerary Planner (1 col) */}
-                <div className="card bento-col-1" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
-                      <h4 style={{ fontWeight: 700, fontFamily: 'var(--font-display)', fontSize: 'var(--text-md)' }}>Itinerary Planner</h4>
-                    </div>
-                    <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
-                      Creates optimized day-by-day travel schedules with real activities, meals, and logistics.
-                    </p>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
-                  </div>
-                </div>
-
-                {/* Card 3: Food Expert (1 col) */}
-                <div className="card bento-col-1" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
-                      <h4 style={{ fontWeight: 700, fontFamily: 'var(--font-display)', fontSize: 'var(--text-md)' }}>Food Expert</h4>
-                    </div>
-                    <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
-                      Discovers must-try dishes, top restaurants, and safety details for any destination worldwide.
-                    </p>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
-                  </div>
-                </div>
-
-                {/* Card 4: Translation Agent (1 col) */}
-                <div className="card bento-col-1" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg>
-                      <h4 style={{ fontWeight: 700, fontFamily: 'var(--font-display)', fontSize: 'var(--text-md)' }}>Translation Agent</h4>
-                    </div>
-                    <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
-                      Real-time AI translation with phonetic guides and cultural context for 16+ languages.
-                    </p>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
-                  </div>
-                </div>
-
-                {/* Card 5: Guide Matcher (1 col) */}
-                <div className="card bento-col-1" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
-                      <h4 style={{ fontWeight: 700, fontFamily: 'var(--font-display)', fontSize: 'var(--text-md)' }}>Guide Matcher</h4>
-                    </div>
-                    <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
-                      AI-matches you with local expert guides based on language, interests, and budget.
-                    </p>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
-                  </div>
-                </div>
-
-                {/* Card 6: Safety Advisor (2 cols) */}
-                <div className="card bento-col-2" style={{ background: 'radial-gradient(circle at 10% 10%, rgba(12, 171, 168, 0.08) 0%, rgba(24, 25, 36, 0.7) 70%)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
-                      <h4 style={{ fontWeight: 700, fontFamily: 'var(--font-display)', fontSize: 'var(--text-md)' }}>Safety Advisor</h4>
-                    </div>
-                    <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
-                      Comprehensive safety reports with emergency contacts, scam alerts, and health warnings.
-                    </p>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
-                  </div>
-                </div>
-
-                {/* Inline Styles for Bento Grid */}
-                <style dangerouslySetInnerHTML={{ __html: `
-                  .bento-grid {
-                    display: grid;
-                    grid-template-columns: 1fr;
-                    gap: 16px;
-                  }
-                  @media (min-width: 768px) {
-                    .bento-grid {
-                      grid-template-columns: repeat(4, 1fr);
-                    }
-                    .bento-col-2 {
-                      grid-column: span 2;
-                    }
-                    .bento-col-1 {
-                      grid-column: span 1;
-                    }
-                  }
-                `}} />
-              </div>
-            </div>
-
-            {/* Ready to Explore CTA Block */}
-            <div className="reveal" style={{
-              background: 'linear-gradient(135deg, rgba(12, 171, 168, 0.1) 0%, rgba(24, 25, 36, 0.7) 100%)',
-              border: '1px solid var(--color-primary-glow)',
-              borderRadius: 'var(--radius-2xl)',
-              padding: '48px 32px',
-              textAlign: 'center',
-              marginTop: '40px',
-            }}>
-              <h3 style={{
-                fontFamily: 'var(--font-display)',
-                fontSize: 'var(--text-xl)',
-                fontWeight: 800,
-                marginBottom: '12px',
-                color: 'var(--color-text)',
-              }}>
-                Ready to Explore?
-              </h3>
-              <p style={{
-                color: 'var(--color-text-muted)',
-                fontSize: 'var(--text-sm)',
-                maxWidth: '500px',
-                margin: '0 auto 24px',
-                lineHeight: 1.6,
-              }}>
+            {/* CTA Block */}
+            <div className="cta-block reveal">
+              <h3 className="cta-block__title">Ready to Explore?</h3>
+              <p className="cta-block__desc">
                 Activate specialized AI sub-agents to assist you with every aspect of your journey.
               </p>
-              <div style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: '10px',
-                justifyContent: 'center',
-                maxWidth: '800px',
-                margin: '0 auto',
-              }}>
+              <div className="cta-block__pills">
                 {[
                   { label: 'Build Itinerary', tab: 'journey' },
-                  { label: 'Street Food Finder', tab: 'food' },
-                  { label: 'Hotel Matcher', tab: 'hotels' },
-                  { label: 'Find Local Guide', tab: 'guides' },
+                  { label: 'Street Food', tab: 'food' },
+                  { label: 'Hotels', tab: 'hotels' },
+                  { label: 'Find Guide', tab: 'guides' },
                   { label: 'Safety Check', tab: 'safety' },
-                  { label: 'Translate Phrase', tab: 'translate' },
-                  { label: 'Track Budget', tab: 'budget' },
-                  { label: 'Explore Map', tab: 'map' },
+                  { label: 'Translate', tab: 'translate' },
+                  { label: 'Budget', tab: 'budget' },
+                  { label: 'Map', tab: 'map' },
                 ].map((pill, idx) => (
-                  <button
-                    key={idx}
-                    className="pill-toggle"
-                    onClick={() => setActiveTab(pill.tab)}
-                  >
+                  <button key={idx} className="pill-toggle" onClick={() => setActiveTab(pill.tab)}>
                     {pill.label}
                   </button>
                 ))}
@@ -604,352 +478,290 @@ export default function Home() {
           </div>
         )}
 
-        {/* JOURNEY PLANNER TAB */}
+        {/* ──── JOURNEY PLANNER ──── */}
         {activeTab === 'journey' && (
-          <div key={`tab-content-${activeTab}`} className="page-enter-active" style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-            <div>
-              <h2 className="section-title">✈️ AI Smart Itinerary Planner</h2>
+          <div key="tab-journey" className="page-enter-active" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+            <div className="page-header">
+              <h2 className="section-title">AI Smart Itinerary Planner</h2>
               <p className="section-subtitle">Plan a custom trip optimized with attractions, local food, and safety parameters</p>
             </div>
 
-            {/* Main Journey Layout Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
-              {/* Form Input Card */}
-              <div className="card" style={{ padding: '24px', height: 'fit-content' }}>
-                <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '1.15rem', marginBottom: '18px' }}>
-                  Trip Configuration
-                </h3>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  {/* Destination */}
-                  <div>
-                    <label className="label">Destination</label>
-                    <input 
-                      className="input-field" 
-                      placeholder="e.g. Kyoto, Rome, Kerala, London..." 
-                      value={destination}
-                      onChange={e => setDestination(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleGenerateJourney()}
-                    />
-                  </div>
+            <div className="journey-layout">
+              {/* Config Panel */}
+              <div className="journey-config">
+                <div className="card" style={{ padding: 'var(--space-6)' }}>
+                  <h3 className="journey-config__title">Trip Configuration</h3>
+                  <div className="journey-config__form">
+                    {/* Destination */}
+                    <div>
+                      <label className="label">Destination</label>
+                      <input
+                        className="input-field"
+                        placeholder="e.g. Kyoto, Rome, Kerala, London..."
+                        value={destination}
+                        onChange={e => setDestination(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleGenerateJourney()}
+                      />
+                    </div>
 
-                  {/* Budget Slider */}
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                      <label className="label">Trip Budget (₹)</label>
-                      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-primary-light)' }}>
-                        ₹{budgetVal.toLocaleString('en-IN')}
-                      </span>
+                    {/* Budget Slider */}
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                        <label className="label" style={{ marginBottom: 0 }}>Trip Budget (₹)</label>
+                        <span style={{ fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--color-primary-light)', fontVariantNumeric: 'tabular-nums' }}>
+                          ₹{budgetVal.toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                      <input
+                        type="range" min="5000" max="100000" step="5000"
+                        value={budgetVal}
+                        onChange={e => setBudgetVal(Number(e.target.value))}
+                        className="custom-slider"
+                      />
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)', color: 'var(--color-text-faint)', marginTop: '4px' }}>
+                        <span>₹5,000</span><span>₹50,000</span><span>₹1,00,000</span>
+                      </div>
                     </div>
-                    <input 
-                      type="range" 
-                      min="5000" 
-                      max="100000" 
-                      step="5000"
-                      value={budgetVal}
-                      onChange={e => setBudgetVal(Number(e.target.value))}
-                      className="custom-slider"
-                      style={{
-                        width: '100%',
-                        backgroundSize: `${((budgetVal - 5000) / 95000) * 100}% 100%`
-                      }}
-                    />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--color-text-faint)' }}>
-                      <span>₹5,000</span>
-                      <span>₹50,000</span>
-                      <span>₹1,00,000</span>
-                    </div>
-                  </div>
 
-                  {/* Days Slider */}
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                      <label className="label">Duration (Days)</label>
-                      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-primary-light)' }}>
-                        {daysVal} {daysVal === 1 ? 'Day' : 'Days'}
-                      </span>
+                    {/* Days Slider */}
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                        <label className="label" style={{ marginBottom: 0 }}>Duration</label>
+                        <span style={{ fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--color-primary-light)' }}>
+                          {daysVal} {daysVal === 1 ? 'Day' : 'Days'}
+                        </span>
+                      </div>
+                      <input
+                        type="range" min="1" max="7"
+                        value={daysVal}
+                        onChange={e => setDaysVal(Number(e.target.value))}
+                        className="custom-slider"
+                      />
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)', color: 'var(--color-text-faint)', marginTop: '4px' }}>
+                        <span>1 Day</span><span>3 Days</span><span>5 Days</span><span>7 Days</span>
+                      </div>
                     </div>
-                    <input 
-                      type="range" 
-                      min="1" 
-                      max="7" 
-                      value={daysVal}
-                      onChange={e => setDaysVal(Number(e.target.value))}
-                      className="custom-slider"
-                      style={{
-                        width: '100%',
-                        backgroundSize: `${((daysVal - 1) / 6) * 100}% 100%`
-                      }}
-                    />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--color-text-faint)' }}>
-                      <span>1 Day</span>
-                      <span>3 Days</span>
-                      <span>5 Days</span>
-                      <span>7 Days</span>
-                    </div>
-                  </div>
 
-                  {/* Interests */}
-                  <div>
-                    <label className="label">Interests (Multi-Select)</label>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {INTEREST_OPTIONS.map(interest => {
-                        const active = selectedInterests.includes(interest);
-                        return (
-                          <button 
+                    {/* Interests */}
+                    <div>
+                      <label className="label">Interests</label>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {INTEREST_OPTIONS.map(interest => (
+                          <button
                             key={interest}
                             onClick={() => toggleInterest(interest)}
-                            className={`pill-toggle ${active ? 'active' : ''}`}
-                            style={{ padding: '6px 12px', fontSize: '0.78rem' }}
+                            className={`pill-toggle ${selectedInterests.includes(interest) ? 'active' : ''}`}
                           >
                             {interest}
                           </button>
-                        );
-                      })}
+                        ))}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Travel Type Cards */}
-                  <div>
-                    <label className="label">Travel Companion</label>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                      {TRAVEL_TYPES.map(t => {
-                        const active = selectedTravelType === t.id;
-                        return (
-                          <div 
+                    {/* Travel Type */}
+                    <div>
+                      <label className="label">Travel Companion</label>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                        {TRAVEL_TYPES.map(t => (
+                          <div
                             key={t.id}
                             onClick={() => setSelectedTravelType(t.id)}
+                            className={`card card--flat card--interactive`}
                             style={{
-                              background: active ? 'var(--color-primary-subtle)' : 'var(--color-surface)',
-                              border: active ? '1px solid var(--color-primary)' : '1px solid var(--border-medium)',
-                              borderRadius: 'var(--radius-md)',
-                              padding: '10px',
                               textAlign: 'center',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s'
+                              padding: 'var(--space-3)',
+                              background: selectedTravelType === t.id ? 'var(--color-primary-subtle)' : 'var(--color-surface-0)',
+                              boxShadow: selectedTravelType === t.id ? '0 0 0 1px var(--color-primary)' : 'var(--border-hairline)',
                             }}
                           >
-                            <div style={{ fontSize: '1rem', fontWeight: 800 }}>{t.label}</div>
-                            <div style={{ fontSize: '0.7rem', color: 'var(--color-text-faint)', marginTop: '2px' }}>{t.desc}</div>
+                            <div style={{ fontSize: 'var(--text-sm)', fontWeight: 700 }}>{t.label}</div>
+                            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-faint)', marginTop: '2px' }}>{t.desc}</div>
                           </div>
-                        );
-                      })}
+                        ))}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Mood Selector Cards */}
-                  <div>
-                    <label className="label">Travel Mood</label>
-                    <div style={{ display: 'flex', overflowX: 'auto', gap: '8px', paddingBottom: '4px', scrollbarWidth: 'thin' }}>
-                      {MOOD_OPTIONS.map(m => {
-                        const active = selectedMood === m.id;
-                        return (
-                          <div 
+                    {/* Mood */}
+                    <div>
+                      <label className="label">Travel Mood</label>
+                      <div style={{ display: 'flex', overflowX: 'auto', gap: '8px', paddingBottom: '4px', scrollbarWidth: 'none' }}>
+                        {MOOD_OPTIONS.map(m => (
+                          <div
                             key={m.id}
                             onClick={() => setSelectedMood(m.id)}
+                            className="card card--flat card--interactive"
                             style={{
-                              background: active ? 'var(--color-primary-subtle)' : 'var(--color-surface)',
-                              border: active ? '1px solid var(--color-primary)' : '1px solid var(--border-medium)',
-                              borderRadius: 'var(--radius-md)',
-                              padding: '8px 12px',
                               textAlign: 'center',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s',
+                              padding: 'var(--space-2) var(--space-3)',
                               whiteSpace: 'nowrap',
-                              flexShrink: 0
+                              flexShrink: 0,
+                              background: selectedMood === m.id ? 'var(--color-primary-subtle)' : 'var(--color-surface-0)',
+                              boxShadow: selectedMood === m.id ? '0 0 0 1px var(--color-primary)' : 'var(--border-hairline)',
                             }}
                           >
-                            <div style={{ fontSize: '0.85rem', fontWeight: 800 }}>{m.label}</div>
+                            <div style={{ fontSize: 'var(--text-sm)', fontWeight: 700 }}>{m.label}</div>
                             <div style={{ fontSize: '0.65rem', color: 'var(--color-text-faint)' }}>{m.desc}</div>
                           </div>
-                        );
-                      })}
+                        ))}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Generate Button */}
-                  <button 
-                    className="btn-primary" 
-                    onClick={handleGenerateJourney}
-                    disabled={journeyLoading || !destination.trim()}
-                    style={{ padding: '14px', justifyContent: 'center', marginTop: '10px' }}
-                  >
-                    {journeyLoading ? (
-                      <><span className="spinner" /> Operating AI Agents...</>
-                    ) : (
-                      '✈️ Generate AI Journey Plan'
-                    )}
-                  </button>
+                    {/* Generate Button */}
+                    <button
+                      className="btn-primary"
+                      onClick={handleGenerateJourney}
+                      disabled={journeyLoading || !destination.trim()}
+                      style={{ padding: '14px', marginTop: 'var(--space-2)' }}
+                    >
+                      {journeyLoading ? (
+                        <><span className="spinner" /> Operating AI Agents...</>
+                      ) : (
+                        'Generate AI Journey Plan'
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {/* Journey Results Card */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {/* Results Panel */}
+              <div className="journey-result">
+                {/* Loading */}
                 {journeyLoading && (
-                  <div className="card" style={{ padding: '60px', textAlign: 'center', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '20px' }}>
-                    <div className="spinner" style={{ width: '40px', height: '40px', color: 'var(--color-primary)' }} />
+                  <div className="card loading-state">
+                    <div className="spinner loading-state__spinner" />
                     <div>
-                      <h4 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.2rem', marginBottom: '6px' }}>Orchestrating AI Agents...</h4>
-                      <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', maxWidth: '360px', margin: '0 auto', lineHeight: 1.5 }}>
+                      <h4 className="loading-state__title">Orchestrating AI Agents...</h4>
+                      <p className="loading-state__desc">
                         Analyzing user profile, planning itinerary, fetching safety briefings, and compiling local food options in parallel.
                       </p>
                     </div>
                   </div>
                 )}
 
+                {/* Error */}
                 {journeyError && (
-                  <div className="card" style={{ padding: '24px', background: 'var(--color-error-subtle)', border: '1px solid var(--color-error)', color: 'var(--color-error)' }}>
-                    <p style={{ fontWeight: 600, textAlign: 'center' }}>⚠️ {journeyError}</p>
-                  </div>
+                  <div className="error-banner">⚠️ {journeyError}</div>
                 )}
 
                 {/* Empty State */}
                 {!journeyResult && !journeyLoading && !journeyError && (
-                  <div className="card" style={{ padding: '60px', textAlign: 'center', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                    <p style={{ fontSize: '4.5rem', marginBottom: '16px' }}>🗺️</p>
-                    <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, marginBottom: '8px' }}>Your AI Journey Dashboard</h3>
-                    <p style={{ color: 'var(--color-text-muted)', maxWidth: '300px', fontSize: '0.85rem' }}>Configure your travel preferences and generate a personalized smart plan.</p>
+                  <div className="card empty-state">
+                    <div className="empty-state__icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 20l-5.447-2.724A1 1 0 0 1 3 16.382V5.618a1 1 0 0 1 1.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0 0 21 18.382V7.618a1 1 0 0 0-.553-.894L15 4m0 13V4m0 0L9 7" />
+                      </svg>
+                    </div>
+                    <h3 className="empty-state__title">Your AI Journey Dashboard</h3>
+                    <p className="empty-state__desc">Configure your travel preferences and generate a personalized smart plan.</p>
                   </div>
                 )}
 
-                {/* Journey Data Rendered */}
-                {journeyResult && (
-                  <div className="card-stagger" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    {/* Destination Banner */}
-                    <div className="card" style={{ padding: '24px', background: 'radial-gradient(circle at 10% 10%, rgba(12, 171, 168, 0.08) 0%, rgba(24, 25, 36, 0.7) 100%)' }}>
-                      <span className="badge badge-primary" style={{ marginBottom: '8px' }}>✓ Journey Generated</span>
-                      <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', fontWeight: 900 }}>
+                {/* Journey Data */}
+                {journeyResult && journeyResult.itinerary && journeyResult.itinerary.days && (
+                  <div className="card-stagger" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
+                    {/* Banner */}
+                    <div className="card journey-banner">
+                      <span className="badge badge-primary" style={{ marginBottom: 'var(--space-2)', display: 'inline-flex' }}>✓ Journey Generated</span>
+                      <h3 className="journey-banner__title">
                         {journeyResult.itinerary?.destination || destination}
                       </h3>
-                      <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', marginTop: '6px', lineHeight: 1.6 }}>
+                      <p className="journey-banner__meta">
                         A {journeyResult.itinerary?.duration || daysVal}-day {selectedMood.toLowerCase()} trip planned for a {selectedTravelType.toLowerCase()} profile.
                       </p>
-                      
-                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '12px' }}>
-                        <span className="badge badge-cyan">💰 {journeyResult.itinerary?.totalEstimatedCost || `Budget Tier: ${journeyResult.userProfile?.budget?.tier}`}</span>
-                        {journeyResult.userProfile?.adventureScore && <span className="badge badge-success">🧗 Adventure: {journeyResult.userProfile.adventureScore}/100</span>}
-                        {journeyResult.userProfile?.comfortScore && <span className="badge badge-warning">💎 Comfort: {journeyResult.userProfile.comfortScore}/100</span>}
+
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: 'var(--space-3)' }}>
+                        <span className="badge badge-primary">💰 {journeyResult.itinerary?.totalEstimatedCost || `Budget Tier: ${journeyResult.userProfile?.budget?.tier}`}</span>
+                        {journeyResult.userProfile?.adventureScore && <span className="badge badge-success">Adventure: {journeyResult.userProfile.adventureScore}/100</span>}
+                        {journeyResult.userProfile?.comfortScore && <span className="badge badge-warning">Comfort: {journeyResult.userProfile.comfortScore}/100</span>}
+                      </div>
+
+                      <div className="no-print" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: 'var(--space-3)' }}>
+                        <button className="btn-secondary" onClick={handlePrintTrip}>Export PDF</button>
+                        <button className="btn-secondary" onClick={handleCopyTripForWhatsApp}>Share via WhatsApp</button>
                       </div>
                     </div>
 
-                    {/* Results Sub-Tabs */}
-                    <div style={{ display: 'flex', gap: '6px', borderBottom: '1px solid var(--border-subtle)' }}>
+                    {/* Sub-Tabs */}
+                    <div className="journey-subtabs">
                       {[
-                        { id: 'itinerary', label: '📅 Itinerary' },
-                        { id: 'food', label: '🍽️ Food & Dine' },
-                        { id: 'safety', label: '🛡️ Safety & SOS' },
-                        { id: 'tips', label: '🧳 Pack & Transport' },
+                        { id: 'itinerary', label: 'Itinerary' },
+                        { id: 'food', label: 'Food & Dine' },
+                        { id: 'safety', label: 'Safety & SOS' },
+                        { id: 'tips', label: 'Pack & Transport' },
                       ].map(tab => (
-                        <button 
+                        <button
                           key={tab.id}
                           onClick={() => setJourneySubTab(tab.id)}
-                          style={{
-                            padding: '10px 14px',
-                            fontSize: '0.8rem',
-                            fontWeight: 700,
-                            border: 'none',
-                            cursor: 'pointer',
-                            background: journeySubTab === tab.id ? 'rgba(255,255,255,0.05)' : 'transparent',
-                            color: journeySubTab === tab.id ? 'var(--color-primary-light)' : 'var(--color-text-muted)',
-                            borderBottom: journeySubTab === tab.id ? '2px solid var(--color-primary)' : '2px solid transparent',
-                            transition: 'all 0.2s'
-                          }}
+                          className={`journey-subtab ${journeySubTab === tab.id ? 'journey-subtab--active' : ''}`}
                         >
                           {tab.label}
                         </button>
                       ))}
                     </div>
 
-                    {/* SUBTAB CONTENT: ITINERARY */}
+                    {/* ITINERARY SUB-TAB */}
                     {journeySubTab === 'itinerary' && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                         {journeyResult.itinerary?.days?.map((day, idx) => {
                           const isExpanded = expandedDay === idx;
                           return (
-                            <div key={idx} className="card" style={{ padding: '0', overflow: 'hidden' }}>
-                              {/* Day Header Accordion Toggle */}
-                              <div 
-                                onClick={() => setExpandedDay(isExpanded ? -1 : idx)}
-                                style={{ padding: '16px 20px', background: 'rgba(255,255,255,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                            <div key={idx} className="card day-accordion" style={{ padding: 0 }}>
+                              <div
+                                className="day-accordion__header"
+                                onClick={() => {
+                                  setExpandedDay(isExpanded ? -1 : idx);
+                                  if (!isExpanded) setActiveMapDay(day.day || idx + 1);
+                                }}
                               >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                  <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--color-primary-subtle)', border: '1px solid var(--color-primary)', color: 'var(--color-primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 800 }}>
-                                    {day.day}
-                                  </div>
+                                <div className="day-accordion__left">
+                                  <div className="day-number">{day.day}</div>
                                   <div>
-                                    <h4 style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-text)' }}>
-                                      {day.theme || `Day ${day.day} Plan`}
-                                    </h4>
-                                    {day.duration && <span style={{ fontSize: '0.72rem', color: 'var(--color-text-faint)' }}>Duration: {day.duration}</span>}
+                                    <div className="day-accordion__title">{day.theme || `Day ${day.day} Plan`}</div>
+                                    {day.duration && <div className="day-accordion__duration">Duration: {day.duration}</div>}
                                   </div>
                                 </div>
-                                <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                                  {isExpanded ? '▲' : '▼'}
+                                <span className={`day-accordion__chevron ${isExpanded ? 'day-accordion__chevron--open' : ''}`}>
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="6 9 12 15 18 9" />
+                                  </svg>
                                 </span>
                               </div>
 
-                              {/* Day Activities List */}
                               {isExpanded && (
-                                <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'rgba(0,0,0,0.1)' }}>
-                                  {/* Activities Timeline */}
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', borderLeft: '2px solid var(--color-primary-glow-strong)', paddingLeft: '14px', marginLeft: '12px' }}>
+                                <div className="day-content">
+                                  <div className="timeline">
                                     {day.activities?.map((act, actIdx) => (
-                                      <div key={actIdx} style={{ position: 'relative' }}>
-                                        {/* Dot anchor on timeline */}
-                                        <div style={{
-                                          position: 'absolute',
-                                          left: '-20px',
-                                          top: '4px',
-                                          width: '10px',
-                                          height: '10px',
-                                          borderRadius: '50%',
-                                          background: 'var(--color-primary)',
-                                          border: '2px solid var(--color-bg)'
-                                        }} />
-                                        
-                                        <div>
-                                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-primary-light)', background: 'var(--color-primary-subtle)', padding: '2px 8px', borderRadius: '4px' }}>
-                                              {act.time}
-                                            </span>
-                                            <h5 style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--color-text)' }}>{act.name}</h5>
-                                            {act.cost && (
-                                              <span className="badge" style={{ fontSize: '0.62rem', background: 'rgba(255,255,255,0.04)', color: 'var(--color-text-muted)', padding: '1px 6px' }}>
-                                                {act.cost}
-                                              </span>
-                                            )}
-                                          </div>
-                                          <p style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem', marginTop: '4px', lineHeight: 1.5 }}>
-                                            {act.description}
-                                          </p>
-                                          {act.location?.name && (
-                                            <p style={{ fontSize: '0.75rem', color: 'var(--color-text-faint)', marginTop: '2px' }}>
-                                              📍 {act.location.name} {act.location.address ? `(${act.location.address})` : ''}
-                                            </p>
-                                          )}
-                                          {act.tips && (
-                                            <p style={{ fontSize: '0.75rem', color: 'var(--color-warning)', fontStyle: 'italic', marginTop: '2px' }}>
-                                              💡 Local tip: {act.tips}
-                                            </p>
-                                          )}
+                                      <div key={actIdx} className="activity">
+                                        <div className="activity__dot" />
+                                        <div className="activity__header">
+                                          <span className="activity__time">{act.time}</span>
+                                          <span className="activity__name">{act.name}</span>
+                                          {act.verified && <span className="badge badge-success">Verified</span>}
+                                          {act.cost && <span className="badge" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-muted)' }}>{act.cost}</span>}
                                         </div>
+                                        <p className="activity__desc">{act.description}</p>
+                                        {act.location?.name && (
+                                          <p className="activity__location">📍 {act.location.name} {act.location.address ? `(${act.location.address})` : ''}</p>
+                                        )}
+                                        {act.mapUrl && (
+                                          <a href={act.mapUrl} target="_blank" rel="noreferrer" className="activity__map-link">
+                                            Open in Google Maps →
+                                          </a>
+                                        )}
+                                        {act.tips && <p className="activity__tip">💡 {act.tips}</p>}
                                       </div>
                                     ))}
                                   </div>
 
-                                  {/* Meals Card */}
+                                  {/* Meals */}
                                   {day.meals && (
-                                    <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '14px', marginTop: '8px' }}>
-                                      <h5 style={{ fontWeight: 700, fontSize: '0.82rem', textTransform: 'uppercase', color: 'var(--color-text-muted)', marginBottom: '8px', letterSpacing: '0.5px' }}>
-                                        🍴 Suggested Meals
-                                      </h5>
-                                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '8px' }}>
+                                    <div className="meals-section">
+                                      <h5 className="meals-section__title">Suggested Meals</h5>
+                                      <div className="meals-grid">
                                         {Object.entries(day.meals).map(([mealType, mealDesc]) => (
-                                          <div key={mealType} style={{ background: 'rgba(255,255,255,0.02)', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
-                                            <div style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-primary-light)' }}>
-                                              {mealType}
-                                            </div>
-                                            <div style={{ fontSize: '0.78rem', color: 'var(--color-text)', marginTop: '2px' }}>
+                                          <div key={mealType} className="meal-chip">
+                                            <div className="meal-chip__type">{mealType}</div>
+                                            <div className="meal-chip__name">
                                               {typeof mealDesc === 'string' ? mealDesc : (mealDesc.name || mealDesc.cuisine || 'Local restaurant')}
                                             </div>
                                           </div>
@@ -965,34 +777,33 @@ export default function Home() {
                       </div>
                     )}
 
-                    {/* SUBTAB CONTENT: FOOD RECOMMEDATIONS */}
+                    {/* FOOD SUB-TAB */}
                     {journeySubTab === 'food' && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                         {journeyResult.foodRecommendations ? (
                           <>
-                            <div className="card" style={{ padding: '20px', background: 'rgba(0,184,148,0.04)', borderColor: 'rgba(0,184,148,0.1)' }}>
-                              <h4 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--color-success)', marginBottom: '6px' }}>Cuisine Overview</h4>
-                              <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', lineHeight: 1.6 }}>
+                            <div className="card" style={{ background: 'var(--color-success-subtle)', boxShadow: 'inset 0 0 0 1px rgba(34, 197, 94, 0.15), var(--shadow-sm)' }}>
+                              <h4 style={{ fontWeight: 700, fontSize: 'var(--text-md)', color: 'var(--color-success)', marginBottom: '6px' }}>Cuisine Overview</h4>
+                              <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
                                 {journeyResult.foodRecommendations.cuisineOverview || 'AI Food expert analysis loaded successfully.'}
                               </p>
-                              <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
-                                {journeyResult.foodRecommendations.vegetarianFriendly && <span className="badge badge-success">🥗 Veg Friendly</span>}
-                                {journeyResult.foodRecommendations.drinkingWaterSafety && <span className="badge badge-cyan">💧 Water: {journeyResult.foodRecommendations.drinkingWaterSafety}</span>}
+                              <div style={{ display: 'flex', gap: '8px', marginTop: 'var(--space-3)', flexWrap: 'wrap' }}>
+                                {journeyResult.foodRecommendations.vegetarianFriendly && <span className="badge badge-success">Veg Friendly</span>}
+                                {journeyResult.foodRecommendations.drinkingWaterSafety && <span className="badge badge-primary">Water: {journeyResult.foodRecommendations.drinkingWaterSafety}</span>}
                               </div>
                             </div>
 
-                            {/* Must Try List */}
                             {journeyResult.foodRecommendations.mustTryDishes && (
                               <div>
-                                <h4 style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--color-text)', marginBottom: '10px' }}>Must-Try Traditional Dishes</h4>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
-                                  {journeyResult.foodRecommendations.mustTryDishes.slice(0, 3).map((dish, dIdx) => (
-                                    <div key={dIdx} className="card" style={{ padding: '12px' }}>
-                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-                                        <h5 style={{ fontWeight: 700, fontSize: '0.85rem' }}>{dish.name}</h5>
-                                        {dish.averagePriceUSD && <span style={{ fontSize: '0.78rem', color: 'var(--color-warning)' }}>~${dish.averagePriceUSD}</span>}
+                                <h4 style={{ fontWeight: 700, fontSize: 'var(--text-base)', marginBottom: 'var(--space-3)' }}>Must-Try Traditional Dishes</h4>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-3)' }}>
+                                  {(journeyResult.foodRecommendations.mustTryDishes || []).slice(0, 3).map((dish, dIdx) => (
+                                    <div key={dIdx} className="card card--flat" style={{ padding: 'var(--space-4)' }}>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                        <h5 style={{ fontWeight: 700, fontSize: 'var(--text-sm)' }}>{dish.name}</h5>
+                                        {dish.averagePriceUSD && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-warning)' }}>~${dish.averagePriceUSD}</span>}
                                       </div>
-                                      <p style={{ color: 'var(--color-text-muted)', fontSize: '0.78rem', lineHeight: 1.4 }}>{dish.description}</p>
+                                      <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-xs)', lineHeight: 1.4 }}>{dish.description}</p>
                                     </div>
                                   ))}
                                 </div>
@@ -1000,31 +811,30 @@ export default function Home() {
                             )}
                           </>
                         ) : (
-                          <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', textAlign: 'center' }}>No food recommendation sub-data processed.</p>
+                          <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', textAlign: 'center' }}>No food recommendation data available.</p>
                         )}
                       </div>
                     )}
 
-                    {/* SUBTAB CONTENT: SAFETY & SOS */}
+                    {/* SAFETY SUB-TAB */}
                     {journeySubTab === 'safety' && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                         {journeyResult.safetyInformation ? (
                           <>
-                            <div className="card" style={{ padding: '20px', background: 'var(--color-error-subtle)', borderLeft: '4px solid var(--color-error)' }}>
-                              <h4 style={{ fontWeight: 700, fontSize: '1rem', color: '#ff7675', marginBottom: '6px' }}>Safety Assessment</h4>
-                              <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', lineHeight: 1.6 }}>
+                            <div className="card" style={{ background: 'var(--color-error-subtle)', boxShadow: 'inset 3px 0 0 var(--color-error), var(--border-hairline)' }}>
+                              <h4 style={{ fontWeight: 700, fontSize: 'var(--text-md)', color: 'var(--color-error)', marginBottom: '6px' }}>Safety Assessment</h4>
+                              <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
                                 {journeyResult.safetyInformation.safetyAssessment || journeyResult.safetyInformation.assessment || 'Destination specific safety report.'}
                               </p>
                             </div>
 
-                            {/* Scams */}
                             {(journeyResult.safetyInformation.commonScams || journeyResult.safetyInformation.scams) && (
-                              <div className="card" style={{ padding: '18px' }}>
-                                <h4 style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-warning)', marginBottom: '10px' }}>⚠️ Common Scams & Risks</h4>
+                              <div className="card card--flat" style={{ padding: 'var(--space-5)' }}>
+                                <h4 style={{ fontWeight: 700, fontSize: 'var(--text-sm)', color: 'var(--color-warning)', marginBottom: 'var(--space-3)' }}>Common Scams & Risks</h4>
                                 <ul style={{ paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                  {(journeyResult.safetyInformation.commonScams || journeyResult.safetyInformation.scams).map((scam, sIdx) => (
-                                    <li key={sIdx} style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', lineHeight: 1.5 }}>
-                                      {typeof scam === 'string' ? scam : (<strong>{scam.name}: </strong> + scam.description)}
+                                  {(journeyResult.safetyInformation.commonScams || journeyResult.safetyInformation.scams || []).map((scam, sIdx) => (
+                                    <li key={sIdx} style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', lineHeight: 1.5 }}>
+                                      {typeof scam === 'string' ? scam : (<><strong>{scam.name || scam.scam}:</strong> {scam.description || scam.howToAvoid}</>)}
                                     </li>
                                   ))}
                                 </ul>
@@ -1032,31 +842,28 @@ export default function Home() {
                             )}
                           </>
                         ) : (
-                          <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', textAlign: 'center' }}>No safety recommendation sub-data processed.</p>
+                          <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', textAlign: 'center' }}>No safety data available.</p>
                         )}
                       </div>
                     )}
 
-                    {/* SUBTAB CONTENT: TIPS */}
+                    {/* TIPS SUB-TAB */}
                     {journeySubTab === 'tips' && (
-                      <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      <div className="card card--flat" style={{ padding: 'var(--space-5)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                         {journeyResult.itinerary?.packingTips && (
                           <div>
-                            <h4 style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '8px' }}>💼 Recommended Packing List</h4>
+                            <h4 style={{ fontWeight: 700, fontSize: 'var(--text-sm)', marginBottom: 'var(--space-3)' }}>Recommended Packing List</h4>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                              {journeyResult.itinerary.packingTips.map((tip, tIdx) => (
-                                <span key={tIdx} className="badge badge-primary" style={{ fontSize: '0.78rem' }}>
-                                  🧳 {tip}
-                                </span>
+                              {(journeyResult.itinerary.packingTips || []).map((tip, tIdx) => (
+                                <span key={tIdx} className="badge badge-primary">{tip}</span>
                               ))}
                             </div>
                           </div>
                         )}
-
                         {journeyResult.itinerary?.transportTips && (
-                          <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '14px' }}>
-                            <h4 style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '6px' }}>🚇 Transport & Transit Advice</h4>
-                            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.82rem', lineHeight: 1.5 }}>
+                          <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 'var(--space-4)' }}>
+                            <h4 style={{ fontWeight: 700, fontSize: 'var(--text-sm)', marginBottom: '6px' }}>Transport & Transit Advice</h4>
+                            <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
                               {journeyResult.itinerary.transportTips}
                             </p>
                           </div>
@@ -1070,120 +877,114 @@ export default function Home() {
           </div>
         )}
 
-        {/* ATTRACTIONS */}
-        {activeTab === 'attractions' && <AttractionsTab key={`tab-content-${activeTab}`} defaultDestination={destination} />}
+        {/* ──── Tab Components ──── */}
+        {activeTab === 'attractions' && <AttractionsTab key="tab-attractions" defaultDestination={destination} />}
+        {activeTab === 'food' && <FoodTab key="tab-food" defaultDestination={destination} initialData={journeyResult?.foodRecommendations} />}
+        {activeTab === 'hotels' && <HotelsTab key="tab-hotels" defaultDestination={destination} />}
+        {activeTab === 'guides' && <GuidesTab key="tab-guides" destination={destination} userProfile={journeyResult?.userProfile} />}
+        {activeTab === 'safety' && <SafetyTab key="tab-safety" defaultDestination={destination} initialData={journeyResult?.safetyInformation} tripData={journeyResult} />}
+        {activeTab === 'translate' && <TranslateTab key="tab-translate" />}
+        {activeTab === 'budget' && <BudgetTracker key="tab-budget" tripBudget={budgetSeedAmount} tripExpenses={budgetSeedExpenses} />}
 
-        {/* FOOD */}
-        {activeTab === 'food' && <FoodTab key={`tab-content-${activeTab}`} defaultDestination={destination} initialData={journeyResult?.foodRecommendations} />}
-
-        {/* HOTELS */}
-        {activeTab === 'hotels' && <HotelsTab key={`tab-content-${activeTab}`} defaultDestination={destination} />}
-
-        {/* GUIDES */}
-        {activeTab === 'guides' && <GuidesTab key={`tab-content-${activeTab}`} destination={destination} userProfile={journeyResult?.userProfile} />}
-
-        {/* SAFETY */}
-        {activeTab === 'safety' && <SafetyTab key={`tab-content-${activeTab}`} defaultDestination={destination} initialData={journeyResult?.safetyInformation} />}
-
-        {/* TRANSLATE */}
-        {activeTab === 'translate' && <TranslateTab key={`tab-content-${activeTab}`} />}
-
-        {/* BUDGET TAB */}
-        {activeTab === 'budget' && <BudgetTracker key={`tab-content-${activeTab}`} />}
-
-        {/* MAP */}
         {activeTab === 'map' && (
-          <div key={`tab-content-${activeTab}`} className="page-enter-active">
-            <div style={{ marginBottom: '20px' }}>
-              <h2 className="section-title">🗺️ Explore Places</h2>
+          <div key="tab-map" className="page-enter-active">
+            <div className="page-header">
+              <h2 className="section-title">Explore Places</h2>
               <p className="section-subtitle">Find nearby hotels, restaurants, and attractions using OpenStreetMap</p>
             </div>
-            <div className="card" style={{ overflow: 'hidden', height: '600px', padding: '0' }}>
-              <Map />
+            {itineraryDays.length > 0 && (
+              <div className="card card--flat no-print" style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3) var(--space-4)' }}>
+                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', marginBottom: 'var(--space-2)' }}>Itinerary day on map</p>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {itineraryDays.map((day, idx) => (
+                    <button
+                      key={`map-day-${day.day || idx + 1}`}
+                      className={`pill-toggle ${activeMapDay === (day.day || idx + 1) ? 'active' : ''}`}
+                      onClick={() => setActiveMapDay(day.day || idx + 1)}
+                    >
+                      Day {day.day || idx + 1}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="card map-container">
+              <Map locations={itineraryLocations} activeDay={activeMapDay} defaultDestination={destination} />
             </div>
           </div>
         )}
 
-        {/* DIRECTIONS */}
         {activeTab === 'directions' && (
-          <div key={`tab-content-${activeTab}`} className="page-enter-active">
-            <div style={{ marginBottom: '20px' }}>
-              <h2 className="section-title">🧭 Route Directions</h2>
+          <div key="tab-directions" className="page-enter-active">
+            <div className="page-header">
+              <h2 className="section-title">Route Directions</h2>
               <p className="section-subtitle">Get optimized routes with turn-by-turn instructions powered by OSRM</p>
             </div>
-            <div className="card" style={{ overflow: 'hidden', padding: '0' }}>
+            <div className="card" style={{ overflow: 'hidden', padding: 0 }}>
               <DirectionsPanel />
             </div>
           </div>
         )}
       </main>
 
-      {/* === Footer === */}
-      <footer style={{
-        borderTop: '1px solid var(--border-subtle)',
-        background: 'rgba(10,11,15,0.9)',
-        padding: '60px 24px 40px',
-        marginTop: '80px',
-      }}>
-        <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '40px', marginBottom: '40px' }}>
+      {/* ═══ Footer ═══ */}
+      <footer className="app-footer">
+        <div className="app-footer__inner">
+          <div className="app-footer__grid">
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                  <circle cx="12" cy="12" r="10" />
-                  <polygon points="16.24,7.76 14.12,14.12 7.76,16.24 9.88,9.88" fill="var(--color-primary-glow)" />
-                </svg>
-                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '1.25rem', color: 'var(--color-text)' }}>SmartTour</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div className="app-header__logo">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <polygon points="16.24,7.76 14.12,14.12 7.76,16.24 9.88,9.88" fill="var(--color-primary-glow)" />
+                  </svg>
+                </div>
+                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 'var(--text-lg)' }}>SmartTour</span>
               </div>
-              <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+              <p className="app-footer__brand-text">
                 AI-powered travel companion with 6 specialized agents for the modern traveler.
               </p>
             </div>
             <div>
-              <h4 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--color-text)', fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '16px' }}>AI Agents</h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <h4 className="app-footer__heading">AI Agents</h4>
+              <div className="app-footer__links">
                 {['Itinerary Planner', 'Food Expert', 'Translation Agent', 'Guide Matcher', 'Safety Advisor', 'User Context Agent'].map(f => (
-                  <span key={f} style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', cursor: 'pointer', transition: 'color var(--transition-fast)' }} className="footer-link" onClick={() => setActiveTab('journey')}>{f}</span>
+                  <span key={f} className="app-footer__link" onClick={() => setActiveTab('journey')}>{f}</span>
                 ))}
               </div>
             </div>
             <div>
-              <h4 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--color-text)', fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '16px' }}>Services</h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {['Itinerary Planning', 'Local Cuisine', 'Real-time Translation', 'Guide Matching', 'Emergency SOS', 'Budget Tracker'].map(f => (
-                  <span key={f} style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', cursor: 'pointer', transition: 'color var(--transition-fast)' }} className="footer-link" onClick={() => {
-                    if (f === 'Emergency SOS') setActiveTab('safety');
-                    else if (f === 'Budget Tracker') setActiveTab('budget');
-                    else if (f === 'Local Cuisine') setActiveTab('food');
-                    else setActiveTab('journey');
-                  }}>{f}</span>
+              <h4 className="app-footer__heading">Services</h4>
+              <div className="app-footer__links">
+                {[
+                  { label: 'Itinerary Planning', tab: 'journey' },
+                  { label: 'Local Cuisine', tab: 'food' },
+                  { label: 'Real-time Translation', tab: 'translate' },
+                  { label: 'Guide Matching', tab: 'guides' },
+                  { label: 'Emergency SOS', tab: 'safety' },
+                  { label: 'Budget Tracker', tab: 'budget' },
+                ].map(f => (
+                  <span key={f.label} className="app-footer__link" onClick={() => setActiveTab(f.tab)}>{f.label}</span>
                 ))}
               </div>
             </div>
             <div>
-              <h4 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--color-text)', fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '16px' }}>Technology</h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {['Gemini 2.0 Flash', 'Next.js 16', 'OpenStreetMap', 'OSRM Routing', 'Open-Meteo Weather', 'Local Storage'].map(f => (
-                  <span key={f} style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)' }} key={f}>{f}</span>
+              <h4 className="app-footer__heading">Technology</h4>
+              <div className="app-footer__links">
+                {['Gemini 2.0 Flash', 'Next.js 16', 'OpenStreetMap', 'OSRM Routing', 'Open-Meteo Weather', 'IndexedDB'].map(f => (
+                  <span key={f} style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)' }}>{f}</span>
                 ))}
               </div>
             </div>
           </div>
-          <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '24px', textAlign: 'center' }}>
-            <p style={{ color: 'var(--color-text-faint)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-body)' }}>© 2026 SmartTour — Built with Agentic AI Architecture · 6 Specialized Agents · Powered by Gemini 2.0</p>
+          <div className="app-footer__bottom">
+            <p>© 2026 SmartTour — Built with Agentic AI Architecture · 6 Specialized Agents · Powered by Gemini 2.0</p>
           </div>
         </div>
-        <style dangerouslySetInnerHTML={{ __html: `
-          .footer-link:hover {
-            color: var(--color-primary-light) !important;
-          }
-        `}} />
       </footer>
 
-      {/* Floating emergency SOS Hub (bottom-left) */}
+      {/* Floating Elements */}
       <SOSButton />
-
-      {/* Chat Widget (bottom-right) */}
       <ChatWidget />
     </div>
   );

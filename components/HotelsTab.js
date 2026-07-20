@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 export default function HotelsTab({ defaultDestination }) {
     const [destination, setDestination] = useState(defaultDestination || '');
@@ -9,12 +9,6 @@ export default function HotelsTab({ defaultDestination }) {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-
-    useEffect(() => {
-        if (defaultDestination) {
-            setDestination(defaultDestination);
-        }
-    }, [defaultDestination]);
 
     const getHotels = async () => {
         if (!destination.trim()) return;
@@ -118,7 +112,6 @@ export default function HotelsTab({ defaultDestination }) {
                     }
                 `}</style>
             </div>
-
             {data && (
                 <div className="card-stagger" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
@@ -126,6 +119,37 @@ export default function HotelsTab({ defaultDestination }) {
                         <span className="badge" style={{ background: `${budgetColors[budget] || 'var(--color-primary)'}22`, color: budgetColors[budget] || 'var(--color-primary-light)', border: `1px solid ${budgetColors[budget] || 'var(--color-primary)'}44` }}>
                             {nights} nights · {budget} budget
                         </span>
+                    </div>
+
+                    {/* Search Real Hotels Section */}
+                    <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px dashed var(--color-primary-glow)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <span style={{ fontSize: '1.5rem' }}>🌐</span>
+                            <div>
+                                <h4 style={{ fontWeight: 700, fontSize: 'var(--text-sm)', color: 'var(--color-text)' }}>Search Real Accommodations</h4>
+                                <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-xs)', marginTop: '2px' }}>Open live search engines pre-filled with your destination details</p>
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '4px' }}>
+                            <a
+                                href={`https://www.booking.com/searchresults.html?ss=${encodeURIComponent(data.destination)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn-primary"
+                                style={{ textDecoration: 'none', display: 'inline-flex', gap: '8px', alignItems: 'center', fontSize: 'var(--text-xs)', height: '36px', padding: '0 16px' }}
+                            >
+                                Booking.com Search
+                            </a>
+                            <a
+                                href={`https://www.google.com/travel/hotels/${encodeURIComponent(data.destination)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn-secondary"
+                                style={{ textDecoration: 'none', display: 'inline-flex', gap: '8px', alignItems: 'center', fontSize: 'var(--text-xs)', height: '36px', padding: '0 16px' }}
+                            >
+                                Google Hotels Search
+                            </a>
+                        </div>
                     </div>
 
                     {data.hotels?.map((h, i) => (
@@ -150,7 +174,28 @@ export default function HotelsTab({ defaultDestination }) {
                                             {h.amenities.map((a, j) => <span key={j} className="badge badge-primary" style={{ fontSize: '0.72rem' }}>{a}</span>)}
                                         </div>
                                     )}
-                                    {h.bookingTip && <p style={{ color: 'var(--color-warning)', fontSize: '0.78rem', fontStyle: 'italic' }}>💡 {h.bookingTip}</p>}
+                                    {h.bookingTip && <p style={{ color: 'var(--color-warning)', fontSize: '0.78rem', fontStyle: 'italic', marginBottom: '10px' }}>💡 {h.bookingTip}</p>}
+                                    
+                                    <div style={{ display: 'flex', gap: '8px', marginTop: '14px', flexWrap: 'wrap' }}>
+                                        <a
+                                            href={`https://www.booking.com/searchresults.html?ss=${encodeURIComponent(h.name + ', ' + data.destination)}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="btn-secondary"
+                                            style={{ textDecoration: 'none', fontSize: '0.75rem', height: '30px', padding: '0 12px', display: 'inline-flex', alignItems: 'center' }}
+                                        >
+                                            Book on Booking.com
+                                        </a>
+                                        <a
+                                            href={`https://www.google.com/search?q=${encodeURIComponent(h.name + ' ' + data.destination)}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="btn-secondary"
+                                            style={{ textDecoration: 'none', fontSize: '0.75rem', height: '30px', padding: '0 12px', display: 'inline-flex', alignItems: 'center' }}
+                                        >
+                                            Search on Google
+                                        </a>
+                                    </div>
                                 </div>
                                 {h.recommended && (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end', flexShrink: 0 }}>

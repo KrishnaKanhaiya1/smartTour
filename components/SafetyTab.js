@@ -1,32 +1,30 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 export default function SafetyTab({ initialData, defaultDestination }) {
     const [destination, setDestination] = useState(defaultDestination || '');
-    const [safetyData, setSafetyData] = useState(null);
+    const [safetyData, setSafetyData] = useState(() => {
+        return initialData && initialData.destination?.toLowerCase() === (defaultDestination || '').toLowerCase()
+            ? initialData
+            : null;
+    });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    useEffect(() => {
-        if (defaultDestination) {
-            setDestination(defaultDestination);
-        }
-        if (initialData && initialData.destination?.toLowerCase() === (defaultDestination || '').toLowerCase()) {
-            setSafetyData(initialData);
-        } else {
-            setSafetyData(null);
-        }
-    }, [initialData, defaultDestination]);
+    const effectiveDestination = destination || defaultDestination || '';
+    const displaySafetyData = initialData && initialData.destination?.toLowerCase() === (defaultDestination || '').toLowerCase()
+        ? initialData
+        : safetyData;
 
     const getSafety = async () => {
-        if (!destination.trim()) return;
+        if (!effectiveDestination.trim()) return;
         setLoading(true); setSafetyData(null); setError(null);
         try {
             const r = await fetch('/api/agent/safety', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ destination })
+                body: JSON.stringify({ destination: effectiveDestination })
             });
             const d = await r.json();
             if (d.success) setSafetyData(d.data);
@@ -93,36 +91,36 @@ export default function SafetyTab({ initialData, defaultDestination }) {
                             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                         </svg>
                         <input className="input-field" placeholder="Bangkok, Mexico City, Rio, Paris..."
-                            value={destination} onChange={e => setDestination(e.target.value)}
+                            value={effectiveDestination} onChange={e => setDestination(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && getSafety()}
                             style={{ paddingLeft: '42px', height: '46px' }} />
                     </div>
-                    <button className="btn-danger" onClick={getSafety} disabled={loading || !destination.trim()} style={{ height: '46px' }}>
+                    <button className="btn-danger" onClick={getSafety} disabled={loading || !effectiveDestination.trim()} style={{ height: '46px' }}>
                         {loading ? <><span className="spinner" /> Analyzing...</> : 'Get Safety Report'}
                     </button>
                 </div>
             </div>
 
-            {safetyData && (
+            {displaySafetyData && (
                 <div className="card-stagger" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     {/* Bento Grid Row 1 */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
                         {/* Overall Safety Rating Card */}
-                        <div className="card" style={{ padding: '28px', background: ratingBg(safetyData.overallSafetyRating), borderColor: 'rgba(239, 68, 68, 0.15)' }}>
+                        <div className="card" style={{ padding: '28px', background: ratingBg(displaySafetyData.overallSafetyRating), borderColor: 'rgba(239, 68, 68, 0.15)' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between', gap: '24px' }}>
                                 <div>
                                     <span className="badge badge-danger" style={{ marginBottom: '12px' }}>Report Core</span>
-                                    <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', fontWeight: 900, color: 'var(--color-text)' }}>{safetyData.destination}</h3>
-                                    <p style={{ color: tierColor(safetyData.safetyTier), fontWeight: 700, fontSize: '1.10rem', marginTop: '6px' }}>● {safetyData.safetyTier}</p>
-                                    {safetyData.travelAdvisory && (
+                                    <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', fontWeight: 900, color: 'var(--color-text)' }}>{displaySafetyData.destination}</h3>
+                                    <p style={{ color: tierColor(displaySafetyData.safetyTier), fontWeight: 700, fontSize: '1.10rem', marginTop: '6px' }}>● {displaySafetyData.safetyTier}</p>
+                                    {displaySafetyData.travelAdvisory && (
                                         <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', marginTop: '8px', lineHeight: 1.5 }}>
-                                            Advisory Level {safetyData.travelAdvisory.level}: {safetyData.travelAdvisory.message}
+                                            Advisory Level {displaySafetyData.travelAdvisory.level}: {displaySafetyData.travelAdvisory.message}
                                         </p>
                                     )}
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(0,0,0,0.2)', borderRadius: 'var(--radius-lg)', padding: '16px 24px', border: '1px solid var(--border-subtle)' }}>
                                     <div>
-                                        <div style={{ fontSize: '1.8rem', fontWeight: 900, color: tierColor(safetyData.safetyTier), fontFamily: 'var(--font-display)' }}>{safetyData.overallSafetyRating}/10</div>
+                                        <div style={{ fontSize: '1.8rem', fontWeight: 900, color: tierColor(displaySafetyData.safetyTier), fontFamily: 'var(--font-display)' }}>{displaySafetyData.overallSafetyRating}/10</div>
                                         <div style={{ fontSize: '0.68rem', color: 'var(--color-text-faint)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Overall safety score</div>
                                     </div>
                                     <span style={{ fontSize: '2rem' }}>📊</span>
@@ -131,11 +129,11 @@ export default function SafetyTab({ initialData, defaultDestination }) {
                         </div>
 
                         {/* Emergency Contact List Card */}
-                        {safetyData.emergencyNumbers?.length > 0 && (
+                        {displaySafetyData.emergencyNumbers?.length > 0 && (
                             <div className="card" style={{ padding: '24px', borderColor: 'rgba(239, 68, 68, 0.15)' }}>
                                 <h4 style={{ fontWeight: 800, fontSize: '1.1rem', marginBottom: '16px', color: 'var(--color-error)', fontFamily: 'var(--font-display)' }}>🚨 Emergency Hotlines</h4>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                                    {safetyData.emergencyNumbers.map((c, i) => (
+                                    {displaySafetyData.emergencyNumbers.map((c, i) => (
                                         <div key={i} style={{ background: 'rgba(239, 68, 68, 0.04)', border: '1px solid rgba(239, 68, 68, 0.15)', borderRadius: 'var(--radius-md)', padding: '12px', textAlign: 'center' }}>
                                             <p style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>{c.service}</p>
                                             <p style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--color-error)', fontFamily: 'var(--font-display)', margin: '4px 0' }}>{c.number}</p>
@@ -150,11 +148,11 @@ export default function SafetyTab({ initialData, defaultDestination }) {
                     {/* Bento Grid Row 2 */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
                         {/* Common Scams */}
-                        {safetyData.commonScams?.length > 0 && (
+                        {displaySafetyData.commonScams?.length > 0 && (
                             <div className="card" style={{ padding: '24px' }}>
                                 <h4 style={{ fontWeight: 800, marginBottom: '16px', color: 'var(--color-warning)', fontFamily: 'var(--font-display)' }}>⚠️ Tourist Scams to Avoid</h4>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                    {safetyData.commonScams.map((s, i) => (
+                                    {displaySafetyData.commonScams.map((s, i) => (
                                         <div key={i} style={{ background: 'rgba(253,203,110,0.03)', border: '1px solid rgba(253,203,110,0.1)', borderRadius: 'var(--radius-md)', padding: '12px' }}>
                                             <p style={{ fontWeight: 700, color: 'var(--color-text)', fontSize: '0.88rem' }}>{s.scam}</p>
                                             <p style={{ color: 'var(--color-text-muted)', fontSize: '0.82rem', marginTop: '4px', lineHeight: 1.4 }}>🛡️ Avoid: {s.howToAvoid}</p>
@@ -165,23 +163,23 @@ export default function SafetyTab({ initialData, defaultDestination }) {
                         )}
 
                         {/* Health Advisory */}
-                        {safetyData.healthInfo && (
+                        {displaySafetyData.healthInfo && (
                             <div className="card" style={{ padding: '24px', borderColor: 'rgba(0,184,148,0.15)' }}>
                                 <h4 style={{ fontWeight: 800, marginBottom: '16px', color: 'var(--color-success)', fontFamily: 'var(--font-display)' }}>🏥 Health & Medical Services</h4>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '8px 12px', borderRadius: '6px' }}>
                                         <span style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>💧 Drinking Water Safety</span>
-                                        <span style={{ color: 'var(--color-text)', fontSize: '0.85rem', fontWeight: 600 }}>{safetyData.healthInfo.waterSafety}</span>
+                                        <span style={{ color: 'var(--color-text)', fontSize: '0.85rem', fontWeight: 600 }}>{displaySafetyData.healthInfo.waterSafety}</span>
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '8px 12px', borderRadius: '6px' }}>
                                         <span style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>🏥 Local Medical Quality</span>
-                                        <span style={{ color: 'var(--color-text)', fontSize: '0.85rem', fontWeight: 600 }}>{safetyData.healthInfo.medicalStandard}</span>
+                                        <span style={{ color: 'var(--color-text)', fontSize: '0.85rem', fontWeight: 600 }}>{displaySafetyData.healthInfo.medicalStandard}</span>
                                     </div>
-                                    {safetyData.healthInfo.recommendedVaccines?.length > 0 && (
+                                    {displaySafetyData.healthInfo.recommendedVaccines?.length > 0 && (
                                         <div style={{ marginTop: '6px' }}>
                                             <p style={{ fontSize: '0.78rem', color: 'var(--color-text-faint)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>Recommended Vaccines</p>
                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                                {safetyData.healthInfo.recommendedVaccines.map((v, i) => (
+                                                {displaySafetyData.healthInfo.recommendedVaccines.map((v, i) => (
                                                     <span key={i} className="badge badge-success" style={{ fontSize: '0.72rem' }}>{v}</span>
                                                 ))}
                                             </div>
@@ -193,31 +191,31 @@ export default function SafetyTab({ initialData, defaultDestination }) {
                     </div>
 
                     {/* Safety Tips */}
-                    {safetyData.safetyTips && (
+                    {displaySafetyData.safetyTips && (
                         <div className="card" style={{ padding: '24px' }}>
                             <h4 style={{ fontWeight: 800, marginBottom: '16px', fontFamily: 'var(--font-display)' }}>💡 Safety & Precaution Guidelines</h4>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '18px' }}>
-                                {safetyData.safetyTips.general?.length > 0 && (
+                                {displaySafetyData.safetyTips.general?.length > 0 && (
                                     <div>
                                         <p style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--color-primary-light)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>General Guidelines</p>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                            {safetyData.safetyTips.general.map((t, i) => <p key={i} style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', paddingLeft: '12px', borderLeft: '2px solid var(--color-primary)', lineHeight: 1.4 }}>{t}</p>)}
+                                            {displaySafetyData.safetyTips.general.map((t, i) => <p key={i} style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', paddingLeft: '12px', borderLeft: '2px solid var(--color-primary)', lineHeight: 1.4 }}>{t}</p>)}
                                         </div>
                                     </div>
                                 )}
-                                {safetyData.safetyTips.nightSafety?.length > 0 && (
+                                {displaySafetyData.safetyTips.nightSafety?.length > 0 && (
                                     <div>
                                         <p style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--color-error)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Night Safety</p>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                            {safetyData.safetyTips.nightSafety.map((t, i) => <p key={i} style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', paddingLeft: '12px', borderLeft: '2px solid var(--color-error)', lineHeight: 1.4 }}>{t}</p>)}
+                                            {displaySafetyData.safetyTips.nightSafety.map((t, i) => <p key={i} style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', paddingLeft: '12px', borderLeft: '2px solid var(--color-error)', lineHeight: 1.4 }}>{t}</p>)}
                                         </div>
                                     </div>
                                 )}
-                                {safetyData.safetyTips.forWomen?.length > 0 && (
+                                {displaySafetyData.safetyTips.forWomen?.length > 0 && (
                                     <div>
                                         <p style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--color-primary-light)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Solo & Women Travelers</p>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                            {safetyData.safetyTips.forWomen.map((t, i) => <p key={i} style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', paddingLeft: '12px', borderLeft: '2px solid var(--color-primary-light)', lineHeight: 1.4 }}>{t}</p>)}
+                                            {displaySafetyData.safetyTips.forWomen.map((t, i) => <p key={i} style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', paddingLeft: '12px', borderLeft: '2px solid var(--color-primary-light)', lineHeight: 1.4 }}>{t}</p>)}
                                         </div>
                                     </div>
                                 )}
@@ -226,21 +224,21 @@ export default function SafetyTab({ initialData, defaultDestination }) {
                     )}
 
                     {/* Cultural Dos/Donts */}
-                    {(safetyData.culturalDos?.length > 0 || safetyData.culturalDonts?.length > 0) && (
+                    {(displaySafetyData.culturalDos?.length > 0 || displaySafetyData.culturalDonts?.length > 0) && (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-                            {safetyData.culturalDos?.length > 0 && (
+                            {displaySafetyData.culturalDos?.length > 0 && (
                                 <div className="card" style={{ padding: '20px', borderColor: 'rgba(0,184,148,0.15)' }}>
-                                    <h4 style={{ fontWeight: 800, marginBottom: '12px', color: 'var(--color-success)', fontFamily: 'var(--font-display)' }}>✅ Cultural Do's</h4>
+                                    <h4 style={{ fontWeight: 800, marginBottom: '12px', color: 'var(--color-success)', fontFamily: 'var(--font-display)' }}>✅ Cultural Dos</h4>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        {safetyData.culturalDos.map((d, i) => <p key={i} style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', lineHeight: 1.4 }}>• {d}</p>)}
+                                        {displaySafetyData.culturalDos.map((d, i) => <p key={i} style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', lineHeight: 1.4 }}>• {d}</p>)}
                                     </div>
                                 </div>
                             )}
-                            {safetyData.culturalDonts?.length > 0 && (
+                            {displaySafetyData.culturalDonts?.length > 0 && (
                                 <div className="card" style={{ padding: '20px', borderColor: 'rgba(239, 68, 68, 0.15)' }}>
-                                    <h4 style={{ fontWeight: 800, marginBottom: '12px', color: 'var(--color-error)', fontFamily: 'var(--font-display)' }}>❌ Cultural Don'ts</h4>
+                                    <h4 style={{ fontWeight: 800, marginBottom: '12px', color: 'var(--color-error)', fontFamily: 'var(--font-display)' }}>❌ Cultural Donts</h4>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        {safetyData.culturalDonts.map((d, i) => <p key={i} style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', lineHeight: 1.4 }}>• {d}</p>)}
+                                        {displaySafetyData.culturalDonts.map((d, i) => <p key={i} style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', lineHeight: 1.4 }}>• {d}</p>)}
                                     </div>
                                 </div>
                             )}

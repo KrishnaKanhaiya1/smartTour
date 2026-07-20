@@ -1,256 +1,274 @@
 'use client';
-import { useState, useEffect } from 'react';
+
+import { useEffect, useMemo, useState } from 'react';
+
+const EMERGENCY_BY_COUNTRY = {
+  in: [
+    { service: 'National Emergency', number: '112' },
+    { service: 'Police', number: '100' },
+    { service: 'Ambulance', number: '102' },
+  ],
+  us: [
+    { service: 'Emergency', number: '911' },
+  ],
+  gb: [
+    { service: 'Emergency', number: '999' },
+    { service: 'EU Emergency', number: '112' },
+  ],
+  fr: [
+    { service: 'Emergency', number: '112' },
+    { service: 'Medical', number: '15' },
+  ],
+  de: [
+    { service: 'Emergency', number: '112' },
+    { service: 'Police', number: '110' },
+  ],
+  ae: [
+    { service: 'Police', number: '999' },
+    { service: 'Ambulance', number: '998' },
+  ],
+};
+
+const DEFAULT_NUMBERS = [
+  { service: 'Global Emergency', number: '112' },
+];
+
+function toMapsLink(lat, lng) {
+  return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+}
 
 export default function SOSButton() {
   const [open, setOpen] = useState(false);
   const [location, setLocation] = useState(null);
-  const [locLoading, setLocLoading] = useState(false);
-  const [countdown, setCountdown] = useState(null);
-  const [alertTriggered, setAlertTriggered] = useState(false);
+  const [countryCode, setCountryCode] = useState('');
+  const [countryName, setCountryName] = useState('');
+  const [loadingLocation, setLoadingLocation] = useState(false);
+  const [shareStatus, setShareStatus] = useState('');
 
-  useEffect(() => {
-    let timer;
-    if (countdown !== null && countdown > 0) {
-      timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-    } else if (countdown === 0) {
-      setAlertTriggered(true);
-      setCountdown(null);
+  const emergencyNumbers = useMemo(() => {
+    const code = countryCode.toLowerCase();
+    return EMERGENCY_BY_COUNTRY[code] || DEFAULT_NUMBERS;
+  }, [countryCode]);
+
+  const fetchCountryFromCoordinates = async (lat, lng) => {
+    try {
+      const url = new URL('https://nominatim.openstreetmap.org/reverse');
+      url.searchParams.set('lat', String(lat));
+      url.searchParams.set('lon', String(lng));
+      url.searchParams.set('format', 'json');
+      url.searchParams.set('addressdetails', '1');
+
+      const response = await fetch(url, {
+        headers: { 'User-Agent': 'SmartTour/1.0' },
+      });
+      if (!response.ok) return;
+
+      const data = await response.json();
+      const cc = data?.address?.country_code || '';
+      const cn = data?.address?.country || '';
+      setCountryCode(cc);
+      setCountryName(cn);
+    } catch (error) {
+      console.error('Reverse geocode failed:', error);
     }
-    return () => clearTimeout(timer);
-  }, [countdown]);
+  };
 
   const fetchLocation = () => {
     if (!navigator.geolocation) {
-      alert("Geolocation is not supported by your browser");
+      setShareStatus('Geolocation is not supported by your browser.');
       return;
     }
-    setLocLoading(true);
+
+    setLoadingLocation(true);
+    setShareStatus('');
+
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocation({
+      async (pos) => {
+        const next = {
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
-          accuracy: pos.coords.accuracy
-        });
-        setLocLoading(false);
+          accuracy: pos.coords.accuracy,
+        };
+        setLocation(next);
+        setLoadingLocation(false);
+        await fetchCountryFromCoordinates(next.lat, next.lng);
       },
       (err) => {
         console.error(err);
-        setLocLoading(false);
-        alert("Failed to get location. Make sure GPS permissions are allowed.");
+        setLoadingLocation(false);
+        setShareStatus('Unable to fetch your location. Check browser permission settings.');
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
   };
 
-  const handleSOS = () => {
-    setCountdown(5);
-    setAlertTriggered(false);
-    fetchLocation();
+  const handleOpen = () => {
+    setOpen(true);
+    if (!location) fetchLocation();
   };
 
-  const cancelSOS = () => {
-    setCountdown(null);
-    setAlertTriggered(false);
+  const shareLocation = async () => {
+    if (!location) {
+      setShareStatus('Fetch location first, then share.');
+      return;
+    }
+
+    const mapsLink = toMapsLink(location.lat, location.lng);
+    const text = `Emergency help needed. My location: ${mapsLink}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'SmartTour SOS Location', text, url: mapsLink });
+        setShareStatus('Location shared successfully.');
+        return;
+      }
+      await navigator.clipboard.writeText(text);
+      setShareStatus('Web Share not available. Location copied to clipboard.');
+    } catch (error) {
+      console.error(error);
+      setShareStatus('Sharing was cancelled or unavailable.');
+    }
   };
+
+  const whatsappHref = location
+    ? `https://wa.me/?text=${encodeURIComponent(`Emergency help needed. My location: ${toMapsLink(location.lat, location.lng)}`)}`
+    : '#';
+  const smsHref = location
+    ? `sms:?body=${encodeURIComponent(`Emergency help needed. My location: ${toMapsLink(location.lat, location.lng)}`)}`
+    : '#';
+  const mailHref = location
+    ? `mailto:?subject=${encodeURIComponent('Emergency location')}&body=${encodeURIComponent(`Emergency help needed. My location: ${toMapsLink(location.lat, location.lng)}`)}`
+    : '#';
+  const hospitalHref = location
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`hospital near ${location.lat},${location.lng}`)}`
+    : 'https://www.google.com/maps/search/?api=1&query=hospital+near+me';
 
   return (
     <>
-      {/* Floating pulsing button on bottom-left */}
-      <button 
-        onClick={() => { setOpen(true); fetchLocation(); }}
+      {/* SOS FAB */}
+      <button
+        id="sos-fab"
+        onClick={handleOpen}
+        className="no-print"
         style={{
-          position: 'fixed',
-          bottom: '28px',
-          left: '28px',
-          zIndex: 9000,
-          width: '60px',
-          height: '60px',
-          borderRadius: '50%',
-          border: 'none',
-          cursor: 'pointer',
-          background: 'linear-gradient(135deg, #d63031, #e17055)',
-          boxShadow: '0 8px 30px rgba(214,48,49,0.5)',
-          fontSize: '1.5rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          animation: 'sos-pulse 1.8s infinite',
+          position: 'fixed', bottom: '28px', left: '28px', zIndex: 9000,
+          width: '56px', height: '56px', borderRadius: '50%', border: 'none', cursor: 'pointer',
+          background: 'var(--color-error)',
+          boxShadow: '0 0 0 1px rgba(255,255,255,0.08), 0 8px 24px rgba(239, 68, 68, 0.3)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: 'white', animation: 'sos-pulse 2s ease-in-out infinite',
         }}
       >
-        🚨
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
       </button>
 
-      {/* CSS Animation inline for SOS Pulse */}
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{ __html: `
         @keyframes sos-pulse {
-          0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(214,48,49,0.7); }
-          70% { transform: scale(1.08); box-shadow: 0 0 0 15px rgba(214,48,49,0); }
-          100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(214,48,49,0); }
+          0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239,68,68,0.5), 0 8px 24px rgba(239,68,68,0.3); }
+          50% { transform: scale(1.06); box-shadow: 0 0 0 12px rgba(239,68,68,0), 0 8px 24px rgba(239,68,68,0.3); }
         }
-      `}} />
+      ` }} />
 
-      {/* Modal/Overlay */}
+      {/* Full-screen Emergency Panel */}
       {open && (
         <div style={{
-          position: 'fixed',
-          inset: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.8)',
-          backdropFilter: 'blur(10px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 99999,
-          padding: '20px'
+          position: 'fixed', inset: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 99999, padding: '20px',
+          animation: 'fade-in 0.2s ease',
         }}>
-          <div className="glass-card" style={{
-            width: '100%',
-            maxWidth: '480px',
-            padding: '30px',
-            background: 'rgba(20, 10, 10, 0.95)',
-            border: '2px solid rgba(214, 48, 49, 0.4)',
-            boxShadow: '0 10px 50px rgba(214, 48, 49, 0.25)',
-            animation: 'fadeInUp 0.35s ease'
+          <div style={{
+            width: '100%', maxWidth: '480px',
+            background: 'var(--color-surface-1)',
+            boxShadow: '0 0 0 1px rgba(239,68,68,0.2), 0 24px 48px rgba(0,0,0,0.5)',
+            borderRadius: 'var(--radius-xl)',
+            padding: 'var(--space-8)',
+            animation: 'fade-up 0.3s var(--ease-out-expo)',
           }}>
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '2rem' }}>🚨</span>
-                <div>
-                  <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', fontWeight: 900, color: '#ff7675' }}>Emergency SOS Hub</h3>
-                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>SAFETY FIRST, ALWAYS</p>
-                </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-6)' }}>
+              <div>
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-xl)', fontWeight: 900, color: 'var(--color-error)' }}>
+                  Emergency SOS
+                </h3>
+                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                  Real emergency actions only
+                </p>
               </div>
-              <button 
-                onClick={() => { setOpen(false); cancelSOS(); }}
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.2rem' }}
-              >
-                ✕
+              <button id="close-sos-modal" onClick={() => setOpen(false)} className="btn-icon" style={{ color: 'var(--color-text-muted)' }} aria-label="Close SOS Modal">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
 
-            {/* Countdown or Alert Banner */}
-            {countdown !== null && (
-              <div style={{ background: 'rgba(214,48,49,0.15)', border: '1px dashed #d63031', borderRadius: '12px', padding: '20px', textAlign: 'center', marginBottom: '20px' }}>
-                <p style={{ color: 'var(--text-primary)', fontWeight: 600 }}>TRIGGERING SOS BROADCAST IN</p>
-                <div style={{ fontSize: '3rem', fontWeight: 900, color: '#ff7675', margin: '10px 0' }}>{countdown}</div>
-                <button className="btn-secondary" onClick={cancelSOS} style={{ padding: '8px 20px', borderColor: '#d63031', color: '#ff7675' }}>
-                  Cancel Broadcast
-                </button>
-              </div>
-            )}
-
-            {alertTriggered && (
-              <div style={{ background: 'rgba(0,184,148,0.15)', border: '1px dashed var(--clr-success)', borderRadius: '12px', padding: '20px', textAlign: 'center', marginBottom: '20px', animation: 'sos-pulse 1.5s infinite' }}>
-                <p style={{ color: 'var(--clr-success)', fontWeight: 700, fontSize: '1.1rem' }}>✓ SOS ALERT BROADCASTED</p>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '6px' }}>Your current coordinates and profile have been simulated-shared with local authorities and emergency contacts.</p>
-                <button className="btn-secondary" onClick={cancelSOS} style={{ padding: '6px 16px', fontSize: '0.78rem', marginTop: '12px' }}>
-                  Clear Alert
-                </button>
-              </div>
-            )}
-
-            {/* General SOS Trigger button */}
-            {countdown === null && !alertTriggered && (
-              <button 
-                onClick={handleSOS}
-                style={{
-                  width: '100%',
-                  background: 'linear-gradient(135deg, #d63031, #ff7675)',
-                  color: 'white',
-                  border: 'none',
-                  padding: '16px',
-                  borderRadius: '16px',
-                  fontSize: '1.1rem',
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '10px',
-                  boxShadow: '0 8px 24px rgba(214,48,49,0.3)',
-                  marginBottom: '20px',
-                  transition: 'all 0.2s'
-                }}
-                onMouseEnter={(e) => e.target.style.transform = 'scale(1.02)'}
-                onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
-              >
-                🚨 BroadCast One-Tap SOS Alert
-              </button>
-            )}
-
-            {/* GPS Location status */}
-            <div className="glass-card" style={{ padding: '16px', marginBottom: '20px', background: 'rgba(255,255,255,0.03)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>📍 CURRENT GPS LOCATION</span>
-                <button onClick={fetchLocation} disabled={locLoading} style={{ background: 'transparent', border: 'none', color: '#00CCCB', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600 }}>
-                  {locLoading ? 'Refreshing...' : '🔄 Refresh'}
+            {/* Location Card */}
+            <div className="card card--flat" style={{ padding: 'var(--space-4)', marginBottom: 'var(--space-4)', background: 'var(--color-surface-0)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span className="label" style={{ marginBottom: 0 }}>Current Location</span>
+                <button onClick={fetchLocation} disabled={loadingLocation} style={{
+                  background: 'transparent', border: 'none', color: 'var(--color-primary-light)',
+                  cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: 700,
+                }}>
+                  {loadingLocation ? 'Refreshing...' : 'Refresh'}
                 </button>
               </div>
               {location ? (
-                <div>
-                  <p style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontFamily: 'monospace' }}>
-                    Lat: {location.lat.toFixed(6)}
+                <>
+                  <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text)', fontVariantNumeric: 'tabular-nums' }}>
+                    {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
                   </p>
-                  <p style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontFamily: 'monospace' }}>
-                    Lng: {location.lng.toFixed(6)}
+                  <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-faint)', marginTop: '2px' }}>
+                    ±{location.accuracy.toFixed(1)}m accuracy {countryName ? `· ${countryName}` : ''}
                   </p>
-                  <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                    Accuracy: ±{location.accuracy.toFixed(1)} meters
-                  </p>
-                  <button 
-                    onClick={() => {
-                      navigator.clipboard.writeText(`SOS! My location: https://maps.google.com/?q=${location.lat},${location.lng}`);
-                      alert("Location link copied to clipboard!");
-                    }}
-                    style={{ background: 'rgba(0, 204, 203, 0.1)', border: '1px solid rgba(0, 204, 203, 0.3)', color: '#00CCCB', padding: '6px 12px', borderRadius: '8px', fontSize: '0.75rem', marginTop: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
-                  >
-                    📋 Copy Location link
-                  </button>
-                </div>
+                </>
               ) : (
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  {locLoading ? 'Fetching GPS coordinates...' : 'No GPS coordinates fetched yet.'}
+                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>
+                  {loadingLocation ? 'Fetching GPS coordinates...' : 'Location not fetched yet.'}
                 </p>
               )}
             </div>
 
-            {/* Quick Contacts */}
-            <div>
-              <h4 style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>
-                Local Indian Hotline Numbers
-              </h4>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                <a href="tel:112" style={{ textDecoration: 'none', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-subtle)', borderRadius: '10px', padding: '10px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)', transition: 'all 0.2s' }}>
-                  <span style={{ fontSize: '1.2rem' }}>📞</span>
-                  <div>
-                    <p style={{ fontSize: '0.85rem', fontWeight: 700 }}>National SOS</p>
-                    <p style={{ fontSize: '0.75rem', color: '#ff7675' }}>Dial 112</p>
-                  </div>
+            {/* Emergency Numbers */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: 'var(--space-4)' }}>
+              {emergencyNumbers.map((entry) => (
+                <a
+                  key={`${entry.service}-${entry.number}`}
+                  href={`tel:${entry.number}`}
+                  className="card card--interactive card--flat"
+                  style={{ textDecoration: 'none', padding: 'var(--space-3)', background: 'var(--color-surface-0)' }}
+                >
+                  <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>{entry.service}</p>
+                  <p style={{ fontSize: 'var(--text-md)', fontWeight: 800, color: 'var(--color-error)' }}>Dial {entry.number}</p>
                 </a>
-                <a href="tel:100" style={{ textDecoration: 'none', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-subtle)', borderRadius: '10px', padding: '10px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)', transition: 'all 0.2s' }}>
-                  <span style={{ fontSize: '1.2rem' }}>🚓</span>
-                  <div>
-                    <p style={{ fontSize: '0.85rem', fontWeight: 700 }}>Police</p>
-                    <p style={{ fontSize: '0.75rem', color: '#ff7675' }}>Dial 100</p>
-                  </div>
-                </a>
-                <a href="tel:102" style={{ textDecoration: 'none', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-subtle)', borderRadius: '10px', padding: '10px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)', transition: 'all 0.2s' }}>
-                  <span style={{ fontSize: '1.2rem' }}>🚑</span>
-                  <div>
-                    <p style={{ fontSize: '0.85rem', fontWeight: 700 }}>Ambulance</p>
-                    <p style={{ fontSize: '0.75rem', color: '#ff7675' }}>Dial 102</p>
-                  </div>
-                </a>
-                <a href="tel:1363" style={{ textDecoration: 'none', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-subtle)', borderRadius: '10px', padding: '10px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)', transition: 'all 0.2s' }}>
-                  <span style={{ fontSize: '1.2rem' }}>🧳</span>
-                  <div>
-                    <p style={{ fontSize: '0.85rem', fontWeight: 700 }}>Tourist Helpline</p>
-                    <p style={{ fontSize: '0.75rem', color: '#ff7675' }}>Dial 1363</p>
-                  </div>
-                </a>
+              ))}
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: 'var(--space-4)' }}>
+              <button onClick={shareLocation} className="btn-danger" style={{ width: '100%', justifyContent: 'center', padding: '12px' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                Share Location
+              </button>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                <a href={whatsappHref} target="_blank" rel="noreferrer" className="btn-secondary" style={{ justifyContent: 'center', textDecoration: 'none', fontSize: 'var(--text-xs)' }}>WhatsApp</a>
+                <a href={smsHref} className="btn-secondary" style={{ justifyContent: 'center', textDecoration: 'none', fontSize: 'var(--text-xs)' }}>SMS</a>
+                <a href={mailHref} className="btn-secondary" style={{ justifyContent: 'center', textDecoration: 'none', fontSize: 'var(--text-xs)' }}>Email</a>
               </div>
             </div>
+
+            <a href={hospitalHref} target="_blank" rel="noreferrer" className="btn-secondary" style={{ width: '100%', justifyContent: 'center', textDecoration: 'none' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              Find Nearest Hospital
+            </a>
+
+            {shareStatus && (
+              <p style={{ marginTop: 'var(--space-3)', fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', textAlign: 'center' }}>
+                {shareStatus}
+              </p>
+            )}
           </div>
         </div>
       )}

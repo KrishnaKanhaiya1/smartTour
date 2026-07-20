@@ -1,24 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 export default function GuidesTab({ guidesData, userProfile, destination }) {
-    const [bookingId, setBookingId] = useState(null);
+    const [guideSearchNotice, setGuideSearchNotice] = useState(null);
     const [dest, setDest] = useState(destination || '');
     const [guides, setGuides] = useState(guidesData || null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [selectedInterests, setSelectedInterests] = useState([]);
     const [selectedLangs, setSelectedLangs] = useState([]);
-
-    useEffect(() => {
-        if (destination) {
-            setDest(destination);
-        }
-        if (guidesData) {
-            setGuides(guidesData);
-        }
-    }, [destination, guidesData]);
 
     const fetchGuides = async () => {
         if (!dest.trim()) return;
@@ -39,10 +30,11 @@ export default function GuidesTab({ guidesData, userProfile, destination }) {
         setLoading(false);
     };
 
-    const bookGuide = (name) => {
-        const id = 'BK' + Date.now();
-        setBookingId(`${id} — ${name}`);
-        setTimeout(() => setBookingId(null), 4000);
+    const findGuideOptions = (guide) => {
+        const query = encodeURIComponent(`${guide.specialties?.join(' ') || 'local'} tour guide ${guides?.destination || dest}`);
+        window.open(guide.searchUrl || `https://www.google.com/maps/search/${query}`, '_blank', 'noopener,noreferrer');
+        setGuideSearchNotice(`Opened live booking options for ${guide.name}.`);
+        setTimeout(() => setGuideSearchNotice(null), 4000);
     };
 
     const stars = (rating) => {
@@ -76,7 +68,7 @@ export default function GuidesTab({ guidesData, userProfile, destination }) {
                 <div>
                     <span className="label" style={{ color: 'var(--color-primary-light)' }}>EXPERT LOCAL GUIDES</span>
                     <h2 className="section-title">👨‍🏫 Guide Matching Agent</h2>
-                    <p className="section-subtitle">AI-matched local expert guides for any destination</p>
+                    <p className="section-subtitle">AI guide suggestions with links to live local booking options</p>
                 </div>
             </div>
 
@@ -139,9 +131,9 @@ export default function GuidesTab({ guidesData, userProfile, destination }) {
                 </div>
             </div>
 
-            {bookingId && (
+            {guideSearchNotice && (
                 <div className="toast toast-success animate-fade-in-up">
-                    ✅ Booking confirmed! ID: {bookingId}
+                    ✅ {guideSearchNotice}
                 </div>
             )}
 
@@ -189,7 +181,7 @@ export default function GuidesTab({ guidesData, userProfile, destination }) {
 
                                         {/* Card Body */}
                                         <div style={{ padding: '18px' }}>
-                                            {g.bio && <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', lineHeight: 1.6, marginBottom: '14px', fontStyle: 'italic' }}>"{g.bio}"</p>}
+                                            {g.bio && <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', lineHeight: 1.6, marginBottom: '14px', fontStyle: 'italic' }}>&quot;{g.bio}&quot;</p>}
 
                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '12px' }}>
                                                 {g.specialties?.map((s, j) => <span key={j} className="badge badge-primary" style={{ fontSize: '0.72rem' }}>{s}</span>)}
@@ -209,8 +201,8 @@ export default function GuidesTab({ guidesData, userProfile, destination }) {
                                             {g.matchReason && <p style={{ fontSize: '0.78rem', color: 'var(--color-success)', marginBottom: '14px' }}>✓ {g.matchReason}</p>}
 
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                                                <button onClick={() => bookGuide(g.name)} className="btn-primary" style={{ padding: '10px', fontSize: '0.82rem', justifyContent: 'center' }}>
-                                                    Book Now
+                                                <button onClick={() => findGuideOptions(g)} className="btn-primary" style={{ padding: '10px', fontSize: '0.82rem', justifyContent: 'center' }}>
+                                                    Find Live Options
                                                 </button>
                                                 <button className="btn-secondary" style={{ padding: '10px', fontSize: '0.82rem', justifyContent: 'center' }} onClick={() => alert(`AI Guide Matcher details profile for ${g.name}`)}>
                                                     Profile
