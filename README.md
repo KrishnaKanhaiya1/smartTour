@@ -1,66 +1,51 @@
-# SmartTour - AI-Powered Agentic Travel Companion
+# smartTour — Multi-Agent Travel Assistant
 
-An intelligent, location-aware travel concierge built with **Next.js** and orchestrated via **Google Gemini API**. It coordinates multiple specialized AI sub-agents to build, manage, and verify customized travel itineraries in real-time.
+[![CI Build](https://github.com/KrishnaKanhaiya1/smartTour/actions/workflows/ci.yml/badge.svg)](https://github.com/KrishnaKanhaiya1/smartTour/actions/workflows/ci.yml)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-Vercel-success.svg?style=for-the-badge&logo=vercel)](https://smarttour-test.vercel.app/)
+[![Next.js](https://img.shields.io/badge/Next.js-v14.x-black.svg)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-v18.x-blue.svg)](https://react.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v3.x-38B2AC.svg)](https://tailwindcss.com/)
+[![Google Gemini API](https://img.shields.io/badge/Gemini_API-Multi--Agent-orange.svg)](https://deepmind.google/technologies/gemini/)
 
----
-
-## 🎯 Key Features
-
-* **Multi-Agent AI Orchestration**: Uses a dedicated `orchestrator.js` that delegates sub-tasks to specialized agent modules (Itinerary Planner, Food Expert, Guide Matcher, Safety Advisor, Translation Agent, User Context Agent).
-* **High-Availability Zero-Cost Architecture**: Built to run efficiently on Gemini 2.5 Flash with automatic multi-key parallel racing (`Promise.any`), 60s rate-limit cooldown, and 403 permanent key blacklisting.
-* **Smart Travel Discovery**: High-accuracy recommendations for attractions, authentic local cuisine, verified hotels, and local tour guides.
-* **Map & Route Directions**: Integrated OpenStreetMap Leaflet map with auto-centering on searched cities, OSRM turn-by-turn routing, and fallback location geocoding.
-* **Safety & SOS Hub**: Destination safety intelligence ratings, emergency hotlines database, and a quick-launch SOS modal.
-* **On-The-Fly Translation**: Multilingual translation for 16+ languages with voice output support.
-* **Budget Tracker**: Track trip expenses with category breakdowns and remaining budget progress bars.
+An intelligent, location-aware travel concierge built with **Next.js App Router** and orchestrated via **Google Gemini API**. Coordinates a suite of specialized autonomous sub-agents to deliver real-time custom itineraries, culinary recommendations, accommodation guidance, and localized safety alerts.
 
 ---
 
-## 🏗️ Project Architecture
+## 🌐 Live Application
+👉 **[Access Live Web App](https://smarttour-test.vercel.app/)**
 
+---
+
+## 🧠 Multi-Agent Delegation Architecture
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant Router as Orchestrator Agent
+    participant Itinerary as Itinerary Planner Agent
+    participant Safety as Safety Protocols Agent
+    participant Food as Culinary Recs Agent
+    participant Gemini as Google Gemini API
+
+    User->>Router: "Plan 3 days in Tokyo with safety advice"
+    Router->>Itinerary: Delegate schedule generation
+    Itinerary->>Gemini: Prompt structured JSON schedule
+    Gemini-->>Itinerary: Return Day 1-3 Itinerary
+    Router->>Safety: Delegate travel advisory check
+    Safety->>Gemini: Fetch hyperlocal safety & embassy info
+    Gemini-->>Safety: Return safety guidelines
+    Router-->>User: Synthesized interactive dashboard
 ```
-├── app/
-│   ├── api/
-│   │   ├── agent/                 # Agent endpoints (journey, chat, safety, hotels, food, guides)
-│   │   └── directions, places...  # Location & routing API handlers
-│   └── page.js                    # Main application view & tab state manager
-├── components/                    # Modular tab panels (Attractions, Food, Hotels, Guides, Safety, Map, Budget, Translate)
-├── lib/
-│   ├── gemini.js                  # Gemini REST client, multi-key parallel racer, & circuit breaker
-│   ├── validation.js              # Zod request & response validation schemas
-│   └── services/
-│       ├── openstreetmap.js       # OSM Nominatim & Overpass integration with node/way fallbacks
-│       └── agents/                # Core sub-agents (journeyCombo, recommendation, food, guide, safety)
-└── tests/                         # Playwright end-to-end integration test suite
-```
 
 ---
 
-## ⚙️ Setup & Local Running
+## 🛠️ Installation & Local Setup
 
-1. **Clone Repository**
-   ```bash
-   git clone https://github.com/KrishnaKanhaiya1/smartTour.git
-   cd smarttour-test
-   ```
-
-2. **Install Dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Environment Variables**
-   Create a `.env.local` file:
-   ```env
-   GEMINI_API_KEYS=key1,key2,key3,key4
-   ```
-
-4. **Run Local Dev Server**
-   ```bash
-   npm run dev
-   ```
-
-5. **Run Integration Tests**
-   ```bash
-   npx playwright test
-   ```
+```bash
+git clone https://github.com/KrishnaKanhaiya1/smartTour.git
+cd smartTour
+cp .env.example .env.local
+npm install
+npm run dev
+```
