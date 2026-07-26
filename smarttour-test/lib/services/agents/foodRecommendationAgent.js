@@ -57,39 +57,39 @@ function getRegionalProfile(destination) {
 
 export class FoodRecommendationAgent {
   async findFood(destination, options = {}) {
-    // 1. Check local knowledge base first
-    const localKB = getDestinationKnowledge(destination);
-    if (localKB && localKB.food) {
-      console.log(`[FoodAgent] KB Match for destination: ${destination}`);
-      return {
-        ...localKB.food,
-        destination
-      };
-    }
+    // 1. Get supplementary context (no longer returning early)
+    const localKB = getDestinationKnowledge(destination) || {};
+    const regional = getRegionalProfile(destination) || {};
 
-    // 2. Resolve destination coordinates via search
+    // 2. Resolve destination coordinates via search & get OSM grounding context
     let center = { lat: 20.5937, lng: 78.9629 };
-    let restaurants = [];
+    let osmRestaurants = [];
 
     try {
       const searchResults = await OpenStreetMapService.searchPlaces(destination);
       if (searchResults && searchResults.length > 0) {
         center = searchResults[0].location;
-        restaurants = await OpenStreetMapService.getNearbyRestaurants(center.lat, center.lng, 5000);
+        osmRestaurants = await OpenStreetMapService.getNearbyRestaurants(center.lat, center.lng, 5000);
       }
     } catch (e) {
       console.warn('[FoodAgent] OSM restaurant lookup failed:', e.message);
     }
 
-    const regional = getRegionalProfile(destination);
+    // 3. ALWAYS query Gemini AI first for authentic culinary recommendations
+    try {
+      console.log(`[FoodAgent] Fetching Gemini food recommendations for ${destination}...`);
+      
+      const osmContext = osmRestaurants.length > 0 
+        ? `\nNearby OSM Restaurants: ${osmRestaurants.slice(0, 10).map(r => r.name).join(', ')}` 
+        : '';
+      const kbContext = localKB.food ? `\nLocal Knowledge Base tips: ${JSON.stringify(localKB.food.mustTryDishes || [])}` : '';
+      
+      const promptContext = `Destination: ${destination}.${osmContext}${kbContext}
+Options: ${JSON.stringify(options)}`;
 
-    // 3. If OSM returns no restaurants, query Gemini AI for authentic culinary recommendations
-    if (restaurants.length === 0) {
-      try {
-        console.log(`[FoodAgent] Fetching Gemini food recommendations for ${destination}...`);
-        const geminiResult = await askGeminiJSON(
-          `You are the SmartTour Food & Culinary Agent. Provide authentic food recommendations for ${destination}, including 3 famous must-try local dishes and 3 real, popular restaurant names in ${destination}. Return JSON ONLY. Do NOT invent fictional places.`,
-          `Destination: ${destination}.
+      const geminiResult = await askGeminiJSON(
+        `You are the SmartTour Food & Culinary Agent. Provide authentic food recommendations for ${destination}, including 3 famous must-try local dishes and 3 real, specific popular restaurant names in ${destination}. Use the provided OSM restaurants and Knowledge Base context if relevant. Return JSON ONLY. Do NOT invent fictional places.`,
+        `${promptContext}
 JSON Schema:
 {
   "cuisineOverview": "Overview of local cuisine in ${destination}",
@@ -115,50 +115,50 @@ JSON Schema:
       "type": "Casual | Fine Dining | Street Food | Café",
       "priceRange": "$$",
       "rating": 4.6,
-      "mustOrder": "Popular dish to order"
+      "mustOrder": "Popular dish to order",
+      "location": { "lat": 12.34, "lng": 56.78 }
     }
   ],
   "foodBudgetTips": [ "Tip 1", "Tip 2" ]
 }`
-        );
+      );
 
-        if (geminiResult && Array.isArray(geminiResult.topRestaurants) && geminiResult.topRestaurants.length > 0) {
-          const formattedGeminiRestaurants = geminiResult.topRestaurants.map((r, idx) => ({
-            name: r.name,
-            cuisine: r.cuisine || 'Regional Cuisine',
-            neighborhood: r.neighborhood || destination,
-            type: r.type || 'Casual',
-            priceRange: r.priceRange || '$$',
-            rating: r.rating || 4.5,
-            mustOrder: r.mustOrder || 'House Special',
-            localFavorite: true,
-            verified: false,
-            osmId: `ai-restaurant-${idx}`,
-            location: center,
-            mapUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(r.name + ' ' + destination)}`
-          }));
+      if (geminiResult && Array.isArray(geminiResult.topRestaurants) && geminiResult.topRestaurants.length > 0) {
+        const formattedGeminiRestaurants = geminiResult.topRestaurants.map((r, idx) => ({
+          name: r.name,
+          cuisine: r.cuisine || 'Regional Cuisine',
+          neighborhood: r.neighborhood || destination,
+          type: r.type || 'Casual',
+          priceRange: r.priceRange || '$$',
+          rating: r.rating || 4.5,
+          mustOrder: r.mustOrder || 'House Special',
+          localFavorite: true,
+          verified: false,
+          osmId: `ai-restaurant-${idx}`,
+          location: r.location && typeof r.location.lat === 'number' ? r.location : center,
+          mapUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(r.name + ' ' + destination)}`
+        }));
 
-          return {
-            destination,
-            cuisineOverview: geminiResult.cuisineOverview || regional.cuisineOverview,
-            vegetarianFriendly: options.dietaryRestrictions?.includes('vegetarian') || true,
-            halalFriendly: options.dietaryRestrictions?.includes('halal') || false,
-            drinkingWaterSafety: geminiResult.drinkingWaterSafety || regional.drinkingWaterSafety,
-            mustTryDishes: geminiResult.mustTryDishes || regional.mustTryDishes,
-            topRestaurants: formattedGeminiRestaurants,
-            foodBudgetTips: geminiResult.foodBudgetTips || [
-              'Eat at busy local restaurants for fresh ingredients.',
-              'Order regional lunch platters for value.'
-            ]
-          };
-        }
-      } catch (geminiErr) {
-        console.warn('[FoodAgent] Gemini food query failed, falling back:', geminiErr.message);
+        return {
+          destination,
+          cuisineOverview: geminiResult.cuisineOverview || regional.cuisineOverview,
+          vegetarianFriendly: options.dietaryRestrictions?.includes('vegetarian') || true,
+          halalFriendly: options.dietaryRestrictions?.includes('halal') || false,
+          drinkingWaterSafety: geminiResult.drinkingWaterSafety || regional.drinkingWaterSafety,
+          mustTryDishes: geminiResult.mustTryDishes || regional.mustTryDishes,
+          topRestaurants: formattedGeminiRestaurants,
+          foodBudgetTips: geminiResult.foodBudgetTips || [
+            'Eat at busy local restaurants for fresh ingredients.',
+            'Order regional lunch platters for value.'
+          ]
+        };
       }
+    } catch (geminiErr) {
+      console.warn('[FoodAgent] Gemini food query failed, falling back:', geminiErr.message);
     }
 
-    // 4. Fallback formatting if OSM/Gemini yield zero results
-    const topRestaurantsFormatted = (restaurants.length > 0 ? restaurants : [
+    // 4. Fallback formatting if Gemini genuinely throws/yields zero results
+    const topRestaurantsFormatted = (osmRestaurants.length > 0 ? osmRestaurants : [
       { name: `${destination} Central Eatery`, location: center, address: destination, cuisine: 'Local Specialties', osmId: 'ai/fallback-eatery' }
     ]).slice(0, 4).map(r => ({
       name: r.name,
@@ -177,13 +177,13 @@ JSON Schema:
 
     return {
       destination,
-      cuisineOverview: regional.cuisineOverview,
+      cuisineOverview: (localKB.food && localKB.food.cuisineOverview) || regional.cuisineOverview,
       vegetarianFriendly: options.dietaryRestrictions?.includes('vegetarian') || true,
       halalFriendly: options.dietaryRestrictions?.includes('halal') || false,
-      drinkingWaterSafety: regional.drinkingWaterSafety,
-      mustTryDishes: regional.mustTryDishes,
+      drinkingWaterSafety: (localKB.food && localKB.food.drinkingWaterSafety) || regional.drinkingWaterSafety,
+      mustTryDishes: (localKB.food && localKB.food.mustTryDishes) || regional.mustTryDishes,
       topRestaurants: topRestaurantsFormatted,
-      foodBudgetTips: [
+      foodBudgetTips: (localKB.food && localKB.food.foodBudgetTips) || [
         'Eat at busy local restaurants for fresh ingredients.',
         'Order regional lunch platters for value.',
         'Use local street food stalls for quick bites.'
