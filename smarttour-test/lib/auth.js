@@ -5,10 +5,27 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 const AuthContext = createContext(null);
 
 // Demo credentials for project evaluators
-const DEMO_USERS = [
+const DEFAULT_DEMO_USERS = [
   { email: 'demo@smarttour.com', password: 'demo123', name: 'Demo User', avatar: '🧑‍💻' },
   { email: 'admin@smarttour.com', password: 'admin123', name: 'Admin', avatar: '👨‍💼' },
 ];
+
+function getRegisteredUsers() {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem('smarttour_registered_users');
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRegisteredUsers(users) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem('smarttour_registered_users', JSON.stringify(users));
+  } catch {}
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -27,18 +44,19 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     // Simulate network delay for realism
-    await new Promise(r => setTimeout(r, 800));
+    await new Promise(r => setTimeout(r, 600));
 
     const normalizedEmail = email.trim().toLowerCase();
-    const match = DEMO_USERS.find(
-      u => u.email === normalizedEmail && u.password === password
+    const allUsers = [...DEFAULT_DEMO_USERS, ...getRegisteredUsers()];
+    const match = allUsers.find(
+      u => u.email.toLowerCase() === normalizedEmail && u.password === password
     );
 
     if (match) {
       const session = {
         email: match.email,
         name: match.name,
-        avatar: match.avatar,
+        avatar: match.avatar || '👤',
         loginAt: new Date().toISOString(),
       };
       setUser(session);
@@ -46,7 +64,43 @@ export function AuthProvider({ children }) {
       return { success: true };
     }
 
-    return { success: false, error: 'Invalid email or password. Try demo@smarttour.com / demo123' };
+    return { success: false, error: 'Invalid email or password. Try demo@smarttour.com / demo123 or Register a new account.' };
+  };
+
+  const register = async (name, email, password) => {
+    await new Promise(r => setTimeout(r, 600));
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const allUsers = [...DEFAULT_DEMO_USERS, ...getRegisteredUsers()];
+    
+    const exists = allUsers.some(u => u.email.toLowerCase() === normalizedEmail);
+    if (exists) {
+      return { success: false, error: 'An account with this email already exists. Please sign in.' };
+    }
+
+    const newUser = {
+      name: name.trim(),
+      email: normalizedEmail,
+      password: password,
+      avatar: '✈️',
+      createdAt: new Date().toISOString(),
+    };
+
+    const registered = getRegisteredUsers();
+    registered.push(newUser);
+    saveRegisteredUsers(registered);
+
+    // Auto-login newly registered user
+    const session = {
+      email: newUser.email,
+      name: newUser.name,
+      avatar: newUser.avatar,
+      loginAt: new Date().toISOString(),
+    };
+    setUser(session);
+    sessionStorage.setItem('smarttour_user', JSON.stringify(session));
+
+    return { success: true };
   };
 
   const logout = () => {
@@ -55,7 +109,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   );

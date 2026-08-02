@@ -13,10 +13,15 @@ export default function LoginPage() {
 }
 
 function LoginForm() {
-  const { login, isAuthenticated, loading: authLoading } = useAuth();
+  const { login, register, isAuthenticated, loading: authLoading } = useAuth();
   const router = useRouter();
+
+  const [mode, setMode] = useState('signin'); // 'signin' | 'register'
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -29,26 +34,64 @@ function LoginForm() {
     }
   }, [authLoading, isAuthenticated, router]);
 
+  const handleModeSwitch = (newMode) => {
+    setMode(newMode);
+    setError('');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email || !password) {
-      setError('Please enter both email and password.');
-      return;
-    }
     setError('');
-    setLoading(true);
 
-    const result = await login(email, password);
-    setLoading(false);
+    if (mode === 'signin') {
+      if (!email || !password) {
+        setError('Please enter both email and password.');
+        return;
+      }
+      setLoading(true);
+      const result = await login(email, password);
+      setLoading(false);
 
-    if (result.success) {
-      router.push('/');
+      if (result.success) {
+        router.push('/');
+      } else {
+        setError(result.error);
+      }
     } else {
-      setError(result.error);
+      // Register mode validation
+      if (!name.trim()) {
+        setError('Please enter your full name.');
+        return;
+      }
+      if (!email.trim() || !email.includes('@')) {
+        setError('Please enter a valid email address.');
+        return;
+      }
+      if (!password || password.length < 6) {
+        setError('Password must be at least 6 characters long.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError('Passwords do not match.');
+        return;
+      }
+
+      setLoading(true);
+      const result = await register(name, email, password);
+      setLoading(false);
+
+      if (result.success) {
+        router.push('/');
+      } else {
+        setError(result.error);
+      }
     }
   };
 
   const fillDemo = async () => {
+    if (mode !== 'signin') {
+      setMode('signin');
+    }
     setDemoFilling(true);
     setError('');
     const demoEmail = 'demo@smarttour.com';
@@ -123,17 +166,61 @@ function LoginForm() {
           </div>
         </div>
 
-        {/* Right panel — Login form */}
+        {/* Right panel — Auth Form */}
         <div className="login-form-panel">
           <div className="login-form-wrapper">
+            
+            {/* Mode Switcher Tabs */}
+            <div className="login-tabs">
+              <button
+                type="button"
+                className={`login-tab ${mode === 'signin' ? 'login-tab--active' : ''}`}
+                onClick={() => handleModeSwitch('signin')}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                className={`login-tab ${mode === 'register' ? 'login-tab--active' : ''}`}
+                onClick={() => handleModeSwitch('register')}
+              >
+                Create Account
+              </button>
+            </div>
+
             <div className="login-form-header">
-              <h2 className="login-form-title">Welcome back</h2>
-              <p className="login-form-subtitle">Sign in to continue your journey</p>
+              <h2 className="login-form-title">
+                {mode === 'signin' ? 'Welcome back' : 'Create your account'}
+              </h2>
+              <p className="login-form-subtitle">
+                {mode === 'signin' 
+                  ? 'Sign in to access your AI itineraries' 
+                  : 'Start planning personalized trips with AI'}
+              </p>
             </div>
 
             <form onSubmit={handleSubmit} className="login-form" autoComplete="off">
+              {mode === 'register' && (
+                <div className="login-field">
+                  <label htmlFor="reg-name" className="login-label">Full Name</label>
+                  <div className="login-input-wrap">
+                    <span className="login-input-icon">👤</span>
+                    <input
+                      id="reg-name"
+                      type="text"
+                      className="login-input"
+                      placeholder="John Doe"
+                      value={name}
+                      onChange={e => setName(e.target.value)}
+                      disabled={loading || demoFilling}
+                      autoComplete="off"
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="login-field">
-                <label htmlFor="login-email" className="login-label">Email</label>
+                <label htmlFor="login-email" className="login-label">Email Address</label>
                 <div className="login-input-wrap">
                   <span className="login-input-icon">✉</span>
                   <input
@@ -157,7 +244,7 @@ function LoginForm() {
                     id="login-password"
                     type={showPassword ? 'text' : 'password'}
                     className="login-input"
-                    placeholder="••••••••"
+                    placeholder={mode === 'register' ? 'At least 6 characters' : '••••••••'}
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     disabled={loading || demoFilling}
@@ -175,6 +262,25 @@ function LoginForm() {
                 </div>
               </div>
 
+              {mode === 'register' && (
+                <div className="login-field">
+                  <label htmlFor="reg-confirm-password" className="login-label">Confirm Password</label>
+                  <div className="login-input-wrap">
+                    <span className="login-input-icon">🔒</span>
+                    <input
+                      id="reg-confirm-password"
+                      type={showPassword ? 'text' : 'password'}
+                      className="login-input"
+                      placeholder="Repeat password"
+                      value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                      disabled={loading || demoFilling}
+                      autoComplete="off"
+                    />
+                  </div>
+                </div>
+              )}
+
               {error && (
                 <div className="login-error">
                   <span>⚠</span> {error}
@@ -189,7 +295,10 @@ function LoginForm() {
                 {loading ? (
                   <span className="login-spinner" />
                 ) : (
-                  <>Sign In<span className="login-btn-arrow">→</span></>
+                  <>
+                    {mode === 'signin' ? 'Sign In' : 'Create Account'}
+                    <span className="login-btn-arrow">→</span>
+                  </>
                 )}
               </button>
             </form>
@@ -197,7 +306,7 @@ function LoginForm() {
             {/* Demo Credentials Section */}
             <div className="login-demo-section">
               <div className="login-divider">
-                <span>or try with demo account</span>
+                <span>or evaluate instantly</span>
               </div>
 
               <button
@@ -208,16 +317,31 @@ function LoginForm() {
               >
                 <span className="login-demo-icon">🧑‍💻</span>
                 <div className="login-demo-text">
-                  <span className="login-demo-label">Use Demo Credentials</span>
+                  <span className="login-demo-label">Use Demo Evaluator Credentials</span>
                   <span className="login-demo-creds">demo@smarttour.com / demo123</span>
                 </div>
                 <span className="login-demo-arrow">→</span>
               </button>
 
-              <p className="login-demo-note">
-                <span>ℹ</span> For project evaluators — no sign-up required
-              </p>
+              <div className="login-toggle-mode-footer">
+                {mode === 'signin' ? (
+                  <p>
+                    First time visiting?{' '}
+                    <button type="button" className="login-link-btn" onClick={() => handleModeSwitch('register')}>
+                      Register an Account
+                    </button>
+                  </p>
+                ) : (
+                  <p>
+                    Already have an account?{' '}
+                    <button type="button" className="login-link-btn" onClick={() => handleModeSwitch('signin')}>
+                      Sign In here
+                    </button>
+                  </p>
+                )}
+              </div>
             </div>
+
           </div>
         </div>
       </div>
