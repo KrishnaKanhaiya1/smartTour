@@ -22,7 +22,7 @@ const MODELS = [
     'gemini-2.0-flash',
     'gemini-2.0-flash-lite',
 ];
-const BASE_URL_PREFIX = 'https://generativelanguage.googleapis.com/v1/models/';
+const BASE_URL_PREFIX = 'https://generativelanguage.googleapis.com/v1beta/models/';
 
 // Export for reference
 export const MODEL_NAME = MODELS[0];
