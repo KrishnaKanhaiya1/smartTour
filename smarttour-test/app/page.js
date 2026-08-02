@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import AttractionsTab from '@/components/AttractionsTab';
 import FoodTab from '@/components/FoodTab';
 import SafetyTab from '@/components/SafetyTab';
@@ -13,6 +14,7 @@ import ChatWidget from '@/components/ChatWidget';
 import BudgetTracker from '@/components/BudgetTracker';
 import SOSButton from '@/components/SOSButton';
 import { db } from '@/lib/db';
+import { AuthProvider, useAuth } from '@/lib/auth';
 
 const TABS = [
   { id: 'dashboard', label: 'Dashboard', icon: '⌘' },
@@ -162,6 +164,39 @@ function StatCard({ value, label }) {
 /* ── Main Page ────────────────────────────────── */
 
 export default function Home() {
+  return (
+    <AuthProvider>
+      <AuthGate />
+    </AuthProvider>
+  );
+}
+
+function AuthGate() {
+  const { isAuthenticated, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      router.replace('/login');
+    }
+  }, [loading, isAuthenticated, router]);
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-bg)' }}>
+        <div className="login-spinner" style={{ width: 32, height: 32, borderWidth: 3, borderColor: 'var(--color-surface-3)', borderTopColor: 'var(--color-primary)' }} />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) return null;
+
+  return <Dashboard />;
+}
+
+function Dashboard() {
+  const { user, logout } = useAuth();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState('dashboard');
 
   // Tab sliding indicator
@@ -349,9 +384,18 @@ export default function Home() {
               <p className="app-header__tagline">Agentic AI Travel System</p>
             </div>
           </div>
-          <div className="app-header__status">
-            <span className="pulse-dot" />
-            <span>6 Agents Online</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
+            <div className="app-header__status">
+              <span className="pulse-dot" />
+              <span>6 Agents Online</span>
+            </div>
+            {user && (
+              <div className="user-badge">
+                <span>{user.avatar}</span>
+                <span className="user-badge-name">{user.name}</span>
+                <button className="user-badge-logout" onClick={() => { logout(); router.replace('/login'); }}>Logout</button>
+              </div>
+            )}
           </div>
         </div>
       </header>

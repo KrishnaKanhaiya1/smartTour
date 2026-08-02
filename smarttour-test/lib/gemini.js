@@ -18,11 +18,11 @@ function getApiKeys() {
 // Try the primary model first, fall back to cheaper/lighter ones on 429.
 // ──────────────────────────────────────────────
 const MODELS = [
-    'gemini-2.5-flash',       // 2.5 Flash works with this key
-    'gemini-2.0-flash',       // 15 RPM free tier
-    'gemini-2.0-flash-lite',  // Higher RPM free tier
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+    'gemini-1.5-pro',
 ];
-const BASE_URL_PREFIX = 'https://generativelanguage.googleapis.com/v1beta/models/';
+const BASE_URL_PREFIX = 'https://generativelanguage.googleapis.com/v1/models/';
 
 // Export for reference
 export const MODEL_NAME = MODELS[0];
